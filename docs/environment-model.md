@@ -1,23 +1,22 @@
 # Environment and deployment model
 
-| GitHub Environment | COUNTRY mapping | Trigger | Approval | Branch policy | Secrets | Deployment |
-|---|---|---|---|---|---|---|
-| Integration | `eint1`–`eint6` | Feature/release promotion | None by default | `feature-*`, `release-*` | Environment-scoped | Automatic where a dedicated environment exists |
-| QA | `eqa` | Release/hotfix validation | QA/business as defined | `release-*`, `hotfix-*` | Environment-scoped | Controlled |
-| Preproduction | `epreprod` | Release/hotfix validation | Release approver | `release-*`, `hotfix-*` | Environment-scoped | Controlled |
-| Production | `prod` | Approved main/tag release | Leadership/production reviewer; prevent self-review | Protected branches/tags | Environment-scoped or OIDC | Manual approval, automated execution |
+| GitHub Environment | Branch mapping | Trigger | Protection | Deployment behavior |
+|---|---|---|---|---|
+| `eint1`–`eint6` | `feature-eint1-*`–`feature-eint6-*` | Successful Standard CI push | None by default | Automatic deployment and smoke test |
+| `eqa` | `release-eqa-*`, `hotfix-eqa-*` | Controlled promotion | QA/business reviewers where required | Manual promotion of an immutable CI artifact |
+| `epreprod` | `release-epreprod-*`, `hotfix-epreprod-*` | Controlled promotion | Release approver where required | Manual promotion of an immutable CI artifact |
+| `prod` | `main` | Successful Standard CI after merge | Production reviewers; prevent self-review | Automatic request; GitHub Environment approval gates execution |
 
 ## Promotion behavior
 
-1. CI creates one immutable artifact.
-2. Deployment receives the producing workflow-run ID and artifact name.
-3. GitHub downloads that exact artifact.
-4. The deployment job enters the named Environment and waits for its protection rules.
-5. The application adapter deploys the artifact.
-6. A smoke test validates basic health.
-7. The same artifact is promoted to the next environment.
+1. Standard CI produces one immutable artifact.
+2. A successful push to `feature-eintN-*` automatically deploys that artifact to `eintN`.
+3. A release or hotfix artifact is manually promoted to shared `eqa` or `epreprod` using **Promote Artifact**.
+4. A successful `main` CI requests the protected `prod` environment and waits for its configured approval.
+5. A successful production deployment starts production verification automatically.
+6. Successful verification starts Semantic Release automatically; it reads the merged PR's SemVer label and creates the matching tag and GitHub Release.
 
-Deployment concurrency is scoped to repository and environment. `cancel-in-progress: false` prevents a running deployment from being interrupted; GitHub serializes deployments so an older pending run cannot overtake an active one.
+Deployment concurrency is scoped to repository and environment. `cancel-in-progress: false` prevents a running deployment from being interrupted.
 
 ## Rollback and revert
 
