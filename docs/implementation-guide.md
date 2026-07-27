@@ -43,7 +43,7 @@ Role-specific Developer/Maintainer and leadership/security approval requires rea
 
 ## 5. Environments
 
-Create Integration, QA, Preproduction, and Production from `governance/environments.json`. Add real reviewers, branch policies, scoped secrets/variables, and prevent self-review for protected stages.
+Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` from `governance/environments.json`. Add real reviewers, branch policies, scoped secrets/variables, and prevent self-review for protected stages. EINT deployments are automatic after successful feature-branch CI; use the **Promote Artifact** workflow for controlled EQA/ePreProd promotion.
 
 ## 6. Demonstration branches
 
