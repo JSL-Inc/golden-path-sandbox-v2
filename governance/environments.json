@@ -1,0 +1,38 @@
+{
+  "Integration": {
+    "wait_timer": 0,
+    "prevent_self_review": false,
+    "deployment_branch_policy": {
+      "protected_branches": false,
+      "custom_branch_policies": true
+    },
+    "branch_patterns": ["feature-*", "release-*"]
+  },
+  "QA": {
+    "wait_timer": 0,
+    "prevent_self_review": true,
+    "deployment_branch_policy": {
+      "protected_branches": false,
+      "custom_branch_policies": true
+    },
+    "branch_patterns": ["release-*", "hotfix-*"]
+  },
+  "Preproduction": {
+    "wait_timer": 0,
+    "prevent_self_review": true,
+    "deployment_branch_policy": {
+      "protected_branches": false,
+      "custom_branch_policies": true
+    },
+    "branch_patterns": ["release-*", "hotfix-*"]
+  },
+  "Production": {
+    "wait_timer": 0,
+    "prevent_self_review": true,
+    "deployment_branch_policy": {
+      "protected_branches": true,
+      "custom_branch_policies": false
+    },
+    "branch_patterns": ["main", "v*"]
+  }
+}

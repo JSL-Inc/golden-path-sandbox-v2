@@ -1,0 +1,20 @@
+name: Pull Request Policy
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  policy:
+    name: Pull Request Policy
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-pr-policy.yml@v2

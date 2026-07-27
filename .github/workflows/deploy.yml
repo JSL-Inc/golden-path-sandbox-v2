@@ -1,0 +1,43 @@
+name: Promote Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target protected GitHub Environment
+        required: true
+        type: choice
+        options:
+          - Integration
+          - QA
+          - Preproduction
+          - Production
+      artifact_name:
+        required: true
+        type: string
+        default: application-package
+      artifact_run_id:
+        description: Successful CI run that produced the artifact
+        required: true
+        type: number
+      environment_url:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: ${{ inputs.environment }}
+      environment_url: ${{ inputs.environment_url }}
+      artifact_name: ${{ inputs.artifact_name }}
+      artifact_run_id: ${{ inputs.artifact_run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit

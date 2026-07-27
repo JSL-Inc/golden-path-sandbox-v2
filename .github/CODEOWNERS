@@ -1,0 +1,7 @@
+# Replace the POC owner with approved organization teams before production.
+* @jacoblaw1
+
+/.github/ @jacoblaw1
+/docs/ @jacoblaw1
+/.zap/ @jacoblaw1
+/governance/ @jacoblaw1

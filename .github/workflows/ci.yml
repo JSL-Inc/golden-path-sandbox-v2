@@ -1,0 +1,41 @@
+name: Standard CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "release-*"
+      - "feature-*"
+  workflow_dispatch:
+    inputs:
+      transition_exception:
+        description: Approved exception reference; leave blank to enforce 80%
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: standard-ci-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  standard-ci:
+    name: Standard CI
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-ci.yml@v2
+    with:
+      prepare_command: bash .github/golden-path/prepare.sh
+      unit_test_command: bash .github/golden-path/unit-test.sh
+      build_command: bash .github/golden-path/build.sh
+      lint_command: bash .github/golden-path/lint.sh
+      junit_report_path: reports/junit/results.xml
+      cobertura_report_path: reports/coverage/cobertura.xml
+      coverage_threshold: 80
+      enforce_coverage: ${{ inputs.transition_exception == '' }}
+      exception_reference: ${{ inputs.transition_exception }}
+      artifact_name: application-package
+      artifact_path: dist/**

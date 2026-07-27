@@ -1,0 +1,3 @@
+10010	IGNORE	POC example: cookie finding accepted in isolated non-production test environment
+10015	WARN	Review incomplete or mixed cache-control headers
+10021	WARN	Review potentially missing anti-clickjacking header
