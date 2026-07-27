@@ -53,10 +53,9 @@ Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` from `governance/e
 - `develop-s34` from that feature branch
 
 Use pull requests to promote develop → feature → release → main. A
-`release-eqa-*` branch deploys to EQA and continues to ePreProd only when the
-repository variable `PROMOTE_EQA_TO_EPREPROD` is `true`. A
-`release-epreprod-*` branch starts directly at ePreProd. All deployments use the
-same GitHub Actions artifact; Artifactory integration is outside the POC scope.
+`release-eqa-*` branch deploys to EQA, while a `release-epreprod-*` branch
+deploys to ePreProd. All deployments use the same GitHub Actions artifact;
+Artifactory integration is outside the POC scope.
 
 ## 7. Evidence
 
