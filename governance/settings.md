@@ -20,6 +20,7 @@ These settings cannot be represented by committed files alone.
 - `security-exception`
 - `coverage-transition`
 - `hotfix`
+- `dependencies`
 
 ## Environments
 

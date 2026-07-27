@@ -10,6 +10,7 @@
 - Added build-once artifact creation, checksum, promotion, smoke testing, and deployment concurrency.
 - Added production-verification evidence and required matching evidence before a live GitHub Release.
 - Added CodeQL, dependency review, Dependabot, secret-protection guidance, and tab-correct ZAP rules.
+- Allowed governed Dependabot-to-main PRs while retaining checks and `patch` release classification.
 - Added integration, regression, system, and performance extension workflows.
 - Added pull-request, CODEOWNERS, and control-exception templates.
 - Added ruleset and environment specifications plus administrator implementation guidance.
