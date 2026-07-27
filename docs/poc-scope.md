@@ -19,7 +19,7 @@
 - `@v2` is the isolated POC release channel for central reusable workflows.
 - Python is the runnable sample; consumers replace the scripts beneath `.github/golden-path/` for Java, .NET, JavaScript, MuleSoft, or other stacks.
 - `@jacoblaw1` is the temporary CODEOWNER and must be replaced by approved teams.
-- Integration, QA, Preproduction, and Production are normalized GitHub Environment names mapped to the supplied EINT, EQA, ePreProd, and prod concepts.
+- GitHub Environment names use the supplied values directly: `eint1`–`eint6`, `eqa`, `epreprod`, and `prod`.
 - DAST begins advisory and may become blocking for internet-facing or high-risk applications after tuning.
 
 ## Non-goals
