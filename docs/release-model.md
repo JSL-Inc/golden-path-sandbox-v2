@@ -12,6 +12,18 @@ The PR-policy workflow rejects missing or duplicate classifications.
 Dependabot PRs are the narrow exception: when no release label exists, the
 workflow classifies the dependency update as `patch`.
 
+## Feature traceability tag
+
+When a pull request from `feature-eint1-6-f###` is merged into
+`release-eqa-*` or `release-epreprod-*`, the merge automatically creates the
+matching lightweight `f###` Git tag on the release-branch merge commit. For
+example, merging `feature-eint1-f26` creates tag `f26`.
+
+This tag records which Rally feature entered the release line. It does not
+calculate or change the final semantic version. Re-running the workflow is a
+successful no-op when the tag already points to the same commit and fails
+safely when the tag points to a different commit.
+
 ## Release sequence
 
 1. Classify the release PR.
