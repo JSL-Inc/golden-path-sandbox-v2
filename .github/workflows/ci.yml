@@ -1,4 +1,4 @@
-name: Clean Pipeline Experiment
+name: Branch CI and Delivery
 
 on:
   push:
