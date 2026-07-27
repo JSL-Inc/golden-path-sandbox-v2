@@ -116,7 +116,7 @@ jobs:
     with:
       environment_name: eint1
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -129,7 +129,7 @@ jobs:
     with:
       environment_name: eint2
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -142,7 +142,7 @@ jobs:
     with:
       environment_name: eint3
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -155,7 +155,7 @@ jobs:
     with:
       environment_name: eint4
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -168,7 +168,7 @@ jobs:
     with:
       environment_name: eint5
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -181,7 +181,7 @@ jobs:
     with:
       environment_name: eint6
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -196,7 +196,7 @@ jobs:
     with:
       environment_name: eqa
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
@@ -209,7 +209,7 @@ jobs:
     with:
       environment_name: epreprod
       artifact_name: application-package
-      artifact_run_id: ${{ github.run_id }}
+      artifact_run_id: ${{ format('{0}', github.run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
