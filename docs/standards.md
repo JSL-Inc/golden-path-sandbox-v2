@@ -49,17 +49,19 @@ The current-state standard allows direct emergency changes on unprotected hotfix
 
 | GitHub Environment | Current-state mapping | Gate |
 |---|---|---|
-| Integration | `eint1`–`eint6` | Automated deployment and smoke test |
-| QA | `eqa` | Protected; QA and business evidence |
-| Preproduction | `epreprod` | Protected; release approval |
-| Production | `prod` | Protected; self-review prevented and leadership approval |
+| Integration | `feature-eint1-*`–`feature-eint6-*` | Automated deployment and smoke test |
+| QA | `release-eqa-*` / `hotfix-eqa-*` | Protected; QA and business evidence |
+| Preproduction | `release-epreprod-*` / `hotfix-epreprod-*` | Protected; release approval |
+| Production | `main` | Protected; self-review prevented and leadership approval |
+
+A release or hotfix branch selects exactly one shared environment from its name; EQA and ePreProd are not chained.
 
 ## Releases
 
 - Calculate `MAJOR.MINOR.PATCH`
 - Build once
 - Publish the versioned artifact to Artifactory in production
-- Promote the same artifact through QA and production
+- Promote the same artifact through the selected shared environment and production
 - Verify production
 - Retain the successful production-verification evidence artifact
 - Create the official tag and GitHub Release only when that matching evidence is supplied
