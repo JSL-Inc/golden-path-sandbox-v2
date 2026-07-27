@@ -1,9 +1,6 @@
 name: Production Verification
 
 on:
-  workflow_run:
-    workflows: ["Promote Artifact"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       release_version:
@@ -20,19 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  verify-after-prod:
-    if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-production-verification.yml@v2
-    with:
-      release_version: pending-automatic-release
-      source_sha: ${{ github.event.workflow_run.head_sha }}
-      verification_command: bash .github/golden-path/production-verify.sh
-
   verify-manually:
-    if: github.event_name == 'workflow_dispatch'
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-production-verification.yml@v2
     with:
       release_version: ${{ inputs.release_version }}
