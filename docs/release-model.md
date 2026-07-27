@@ -24,6 +24,10 @@ workflow classifies the dependency update as `patch`.
 8. It validates the production-verification evidence against the deployed commit.
 9. It creates the Git tag and generated GitHub Release.
 
+Dependabot branches execute the same CI, integration, regression, artifact,
+production, verification, and release sequence. Their missing SemVer label is
+treated as `patch`; an explicit SemVer label still takes precedence.
+
 Manual recovery inputs remain on `Production Release` for an operator to supply
 the merged PR, artifact run, and main commit if automatic discovery is
 interrupted. Release creation is idempotent: a rerun reuses an existing SemVer

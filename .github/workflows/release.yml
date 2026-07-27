@@ -78,12 +78,12 @@ jobs:
               if item.get("merged_at")
               and item.get("base", {}).get("ref") == "main"
               and item.get("head", {}).get("ref", "").startswith(
-                  ("release-", "hotfix-")
+                  ("release-", "hotfix-", "dependabot/")
               )
           ]
           if len(matches) > 1:
               raise SystemExit(
-                  "More than one merged release or hotfix PR is associated "
+                  "More than one merged release, hotfix, or dependency PR is associated "
                   "with this main commit"
               )
 

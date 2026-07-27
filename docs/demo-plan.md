@@ -3,6 +3,10 @@
 The normal path is automatic. Manual deployment, DAST, system, and performance
 workflows are recovery or optional demonstrations, not prerequisites.
 
+Dependabot is the deliberate exception to the COUNTRY branch names: its branch
+gets the same single CI/integration/regression run and defaults to a patch
+release if merged.
+
 ## Before the meeting
 
 1. Apply the rulesets in `governance/rulesets/`.

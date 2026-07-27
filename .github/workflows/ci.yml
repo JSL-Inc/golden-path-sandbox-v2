@@ -7,6 +7,7 @@ on:
       - "feature-*"
       - "release-*"
       - "hotfix-*"
+      - "dependabot/**"
   workflow_dispatch:
     inputs:
       transition_exception:
@@ -28,7 +29,10 @@ concurrency:
 jobs:
   standard-ci:
     name: Standard CI
-    if: github.event_name != 'push' || github.event.created == false
+    if: >-
+      github.event_name != 'push' ||
+      github.event.created == false ||
+      startsWith(github.ref_name, 'dependabot/')
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-ci.yml@v2
     with:
       prepare_command: bash .github/golden-path/prepare.sh
@@ -49,7 +53,8 @@ jobs:
     if: >-
       startsWith(github.ref_name, 'feature-') ||
       startsWith(github.ref_name, 'release-') ||
-      startsWith(github.ref_name, 'hotfix-')
+      startsWith(github.ref_name, 'hotfix-') ||
+      startsWith(github.ref_name, 'dependabot/')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -86,7 +91,8 @@ jobs:
     needs: standard-ci
     if: >-
       startsWith(github.ref_name, 'release-') ||
-      startsWith(github.ref_name, 'hotfix-')
+      startsWith(github.ref_name, 'hotfix-') ||
+      startsWith(github.ref_name, 'dependabot/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
