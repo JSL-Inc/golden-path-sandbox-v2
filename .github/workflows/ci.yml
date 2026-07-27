@@ -190,8 +190,8 @@ jobs:
     name: Deploy eqa
     needs: [standard-ci, integration-test, regression-test]
     if: >-
-      startsWith(github.ref_name, 'release-') ||
-      startsWith(github.ref_name, 'hotfix-')
+      startsWith(github.ref_name, 'release-eqa-') ||
+      startsWith(github.ref_name, 'hotfix-eqa-')
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
     with:
       environment_name: eqa
@@ -203,8 +203,10 @@ jobs:
 
   deploy-epreprod:
     name: Deploy epreprod
-    needs: deploy-eqa
-    if: needs.deploy-eqa.result == 'success'
+    needs: [standard-ci, integration-test, regression-test]
+    if: >-
+      startsWith(github.ref_name, 'release-epreprod-') ||
+      startsWith(github.ref_name, 'hotfix-epreprod-')
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
     with:
       environment_name: epreprod
