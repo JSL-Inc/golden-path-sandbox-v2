@@ -9,6 +9,8 @@ Every pull request entering `main` must have exactly one label:
 - `patch`: backward-compatible correction or hotfix
 
 The PR-policy workflow rejects missing or duplicate classifications.
+Dependabot PRs are the narrow exception: when no release label exists, the
+workflow classifies the dependency update as `patch`.
 
 ## Release sequence
 

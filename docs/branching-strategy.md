@@ -39,7 +39,7 @@ The reusable PR-policy check permits:
 - `feature-* → release-*`
 - `release-* → main`
 - `hotfix-* → main`
-- `dependabot/* → main`, with the normal checks and a required `patch` label
+- `dependabot/* → main`, with the normal checks; it is classified as `patch`
 - `main → release-*` for synchronization after a hotfix/release
 - `release-* → feature-*` for downstream synchronization
 
