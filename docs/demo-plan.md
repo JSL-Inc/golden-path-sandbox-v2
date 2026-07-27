@@ -47,6 +47,8 @@ Integration Test, PR policy, and the configured approvals.
 
 After approval, squash merge into `release-eqa-poc-release`.
 
+- **Feature ID Tag** extracts `f26` from the source branch and creates the `f26` tag on the release-branch merge commit.
+- The tag is traceability evidence only; it does not select the final semantic version.
 - One **Branch CI and Delivery** run executes Standard CI, integration, and
   regression.
 - That run creates the release-candidate artifact once.
@@ -82,6 +84,7 @@ CI. Show **Rollback or Redeploy Artifact** as the operator recovery path.
 - Branch-creation records skip all jobs until content is pushed.
 - Direct updates to protected branches are blocked.
 - PR transitions and release classification are enforced.
+- A merged feature PR creates its `f###` tag exactly once on the release-branch merge commit.
 - JUnit, Cobertura, build checksum, and deployment evidence are retained.
 - The release artifact is promoted without rebuilding.
 - Protected Environment reviewers can pause the selected shared deployment and production deployment.
