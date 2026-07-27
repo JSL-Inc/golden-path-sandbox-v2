@@ -14,6 +14,7 @@
 - Added integration, regression, system, and performance extension workflows.
 - Added pull-request, CODEOWNERS, and control-exception templates.
 - Added ruleset and environment specifications plus administrator implementation guidance.
+- Confirmed the emitted Standard CI, PR-policy, CodeQL, and dependency-review check names from live Actions jobs and updated the ruleset specifications.
 - Added architecture, scope, mapping, control matrix, testing, security, release, environment, demo, acceptance, exception, and limitation documentation.
 
 ## Settings boundary

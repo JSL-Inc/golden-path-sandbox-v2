@@ -28,9 +28,9 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {"context": "Standard CI / Golden Path CI"},
-          {"context": "Pull Request Policy / Pull Request Policy / Branch and Release Policy"},
-          {"context": "Security Scanning / Security Scanning / CodeQL SAST (python)"},
-          {"context": "Security Scanning / Security Scanning / Dependency Review"}
+          {"context": "Pull Request Policy / Branch and Release Policy"},
+          {"context": "Security Scanning / CodeQL SAST (python)"},
+          {"context": "Security Scanning / Dependency Review"}
         ]
       }
     }

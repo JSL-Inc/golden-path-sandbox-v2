@@ -28,7 +28,7 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {"context": "Standard CI / Golden Path CI"},
-          {"context": "Pull Request Policy / Pull Request Policy / Branch and Release Policy"},
+          {"context": "Pull Request Policy / Branch and Release Policy"},
           {"context": "Integration Tests / Integration Test"}
         ]
       }
