@@ -38,7 +38,7 @@ bash .github/golden-path/lint.sh
 4. Push application changes; one run creates CI evidence and an immutable artifact.
 5. Promote with PRs through `develop → feature → release → main`.
 6. Feature validation automatically deploys to its named EINT environment.
-7. Release validation automatically deploys the same artifact to the single shared environment named by the branch: EQA or ePreProd.
+7. Release validation automatically deploys the same artifact to the environment named by the branch: `release-eqa-*` goes to EQA and `release-epreprod-*` goes to ePreProd.
 8. Add exactly one `major`, `minor`, or `patch` label to the PR entering `main`.
 9. The merge automatically promotes the release artifact to production, verifies it,
    and creates the matching SemVer tag and GitHub Release.
