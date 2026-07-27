@@ -1,23 +1,31 @@
 name: Promote Artifact
 
 on:
+  workflow_run:
+    workflows: ["Standard CI"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       environment:
-        description: Target protected GitHub Environment
+        description: Target protected GitHub Environment for a controlled promotion
         required: true
         type: choice
         options:
-          - Integration
-          - QA
-          - Preproduction
-          - Production
+          - eint1
+          - eint2
+          - eint3
+          - eint4
+          - eint5
+          - eint6
+          - eqa
+          - epreprod
+          - prod
       artifact_name:
         required: true
         type: string
         default: application-package
       artifact_run_id:
-        description: Successful CI run that produced the artifact
+        description: Successful Standard CI run that produced the immutable artifact
         required: true
         type: number
       environment_url:
@@ -30,8 +38,82 @@ permissions:
   contents: read
   id-token: write
 
+# Dedicated feature environments deploy automatically after a successful push CI.
+# Shared eqa/epreprod remain controlled promotions because they can be shared.
+# A successful main CI automatically requests the protected prod environment.
 jobs:
-  deploy:
+  deploy-eint1:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      startsWith(github.event.workflow_run.head_branch, 'feature-eint1-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: eint1
+      artifact_name: application-package
+      artifact_run_id: ${{ github.event.workflow_run.id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-eint2:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'feature-eint2-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with: { environment_name: eint2, artifact_name: application-package, artifact_run_id: '${{ github.event.workflow_run.id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
+    secrets: inherit
+
+  deploy-eint3:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'feature-eint3-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with: { environment_name: eint3, artifact_name: application-package, artifact_run_id: '${{ github.event.workflow_run.id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
+    secrets: inherit
+
+  deploy-eint4:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'feature-eint4-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with: { environment_name: eint4, artifact_name: application-package, artifact_run_id: '${{ github.event.workflow_run.id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
+    secrets: inherit
+
+  deploy-eint5:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'feature-eint5-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with: { environment_name: eint5, artifact_name: application-package, artifact_run_id: '${{ github.event.workflow_run.id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
+    secrets: inherit
+
+  deploy-eint6:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'feature-eint6-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with: { environment_name: eint6, artifact_name: application-package, artifact_run_id: '${{ github.event.workflow_run.id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
+    secrets: inherit
+
+  deploy-prod:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: prod
+      artifact_name: application-package
+      artifact_run_id: ${{ github.event.workflow_run.id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-controlled:
+    if: github.event_name == 'workflow_dispatch'
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
     with:
       environment_name: ${{ inputs.environment }}
