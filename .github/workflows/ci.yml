@@ -203,24 +203,10 @@ jobs:
 
   deploy-epreprod:
     name: Deploy epreprod
-    needs: [standard-ci, integration-test, regression-test, deploy-eqa]
+    needs: [standard-ci, integration-test, regression-test]
     if: >-
-      always() &&
-      needs.standard-ci.result == 'success' &&
-      needs.integration-test.result == 'success' &&
-      needs.regression-test.result == 'success' &&
-      (
-        startsWith(github.ref_name, 'release-epreprod-') ||
-        startsWith(github.ref_name, 'hotfix-epreprod-') ||
-        (
-          vars.PROMOTE_EQA_TO_EPREPROD == 'true' &&
-          needs.deploy-eqa.result == 'success' &&
-          (
-            startsWith(github.ref_name, 'release-eqa-') ||
-            startsWith(github.ref_name, 'hotfix-eqa-')
-          )
-        )
-      )
+      startsWith(github.ref_name, 'release-epreprod-') ||
+      startsWith(github.ref_name, 'hotfix-epreprod-')
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
     with:
       environment_name: epreprod
