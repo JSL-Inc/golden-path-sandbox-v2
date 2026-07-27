@@ -12,19 +12,22 @@ These settings cannot be represented by committed files alone.
 - Enable vulnerability alerts and Dependabot security updates.
 - Enable CodeQL, secret scanning, and push protection where licensed.
 
-## Labels
+## Labels and behavior
 
-- `major`
-- `minor`
-- `patch`
+- `major`: next verified production release increments the major version.
+- `minor`: next verified production release increments the minor version.
+- `patch`: next verified production release increments the patch version.
 - `security-exception`
 - `coverage-transition`
 - `hotfix`
 - `dependencies`
 
+Exactly one SemVer label is required on a PR entering `main`. The other labels
+are classification/evidence labels and do not change version calculation.
+
 ## Environments
 
-Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` using `environments.json`. Add approved team/user reviewers before enabling the `prod` gate. Dedicated EINT environments can deploy automatically; shared EQA/ePreProd promotions remain controlled.
+Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` using `environments.json`. Add approved team/user reviewers before enabling shared-stage gates. All deployment requests are automatic; configured Environment reviewers control when EQA, ePreProd, and production jobs proceed.
 
 ## Rulesets
 

@@ -12,7 +12,7 @@ Runnable demonstration repository generated from `golden-path-template-v2`.
 - Blocking 80% coverage baseline with an approved transition mode
 - Tests before build for fail-fast feedback
 - Blocking build and code-quality checks
-- CodeQL, dependency review, Dependabot, and secret-protection guidance
+- Optional CodeQL and dependency review, plus Dependabot and secret-protection guidance
 - OWASP ZAP DAST against non-production targets
 - Build-once artifact promotion through `eint1`–`eint6`, `eqa`, `epreprod`, and `prod`
 - Semantic versioning and verified release creation
@@ -30,15 +30,20 @@ bash .github/golden-path/build.sh
 bash .github/golden-path/lint.sh
 ```
 
-## Branch demonstration
+## Automatic demonstration flow
 
 1. Create `release-eqa-poc-release` from `main`.
 2. Create `feature-eint1-f26` from the release branch.
 3. Create `develop-s34` from the feature branch.
-4. Open a PR from `develop-s34` to `feature-eint1-f26`.
-5. Promote feature to release and release to main using PRs.
-6. Run the release workflow with exactly one `major`, `minor`, or `patch` classification.
-7. Promote the same artifact through protected environments.
-8. Verify production before creating the official GitHub Release.
+4. Push application changes; one run creates CI evidence and an immutable artifact.
+5. Promote with PRs through `develop → feature → release → main`.
+6. Feature validation automatically deploys to its named EINT environment.
+7. Release validation automatically promotes the same artifact to EQA and ePreProd.
+8. Add exactly one `major`, `minor`, or `patch` label to the PR entering `main`.
+9. The merge automatically promotes the release artifact to production, verifies it,
+   and creates the matching SemVer tag and GitHub Release.
+
+Normal pushes do not also start a second PR copy of core CI. PR events run only
+the policy and optional security workflows.
 
 See [docs/standards.md](docs/standards.md), [docs/control-matrix.md](docs/control-matrix.md), and [docs/demo-plan.md](docs/demo-plan.md).

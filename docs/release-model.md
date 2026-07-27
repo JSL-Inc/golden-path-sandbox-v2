@@ -16,14 +16,18 @@ workflow classifies the dependency update as `patch`.
 
 1. Classify the release PR.
 2. Merge the validated release or hotfix branch to `main`.
-3. The successful `main` CI requests the protected `prod` Environment with its immutable artifact.
-4. After Environment approval and a successful deployment, production verification runs automatically.
-5. Semantic Release identifies the merged PR associated with the deployed main commit.
-6. It reads the single release label and calculates the next version from the latest `vMAJOR.MINOR.PATCH` tag.
-7. It validates the production-verification evidence against the deployed commit.
-8. It creates the Git tag and generated GitHub Release.
+3. `Production Release` identifies the merged release/hotfix PR and its successful `Branch CI and Delivery` run.
+4. It promotes that source run's immutable artifact to the protected `prod` Environment; `main` is not rebuilt.
+5. After Environment approval and a successful deployment, production verification runs automatically.
+6. Semantic Release uses the merged PR associated with the deployed main commit.
+7. It reads the single release label and calculates the next version from the latest `vMAJOR.MINOR.PATCH` tag.
+8. It validates the production-verification evidence against the deployed commit.
+9. It creates the Git tag and generated GitHub Release.
 
-Manual dry-run mode remains available for testing the version calculation without creating a tag or release. GitHub rejects an existing duplicate tag/release, preventing accidental duplicate publication.
+Manual recovery inputs remain on `Production Release` for an operator to supply
+the merged PR, artifact run, and main commit if automatic discovery is
+interrupted. Release creation is idempotent: a rerun reuses an existing SemVer
+tag on the same commit and does not create a duplicate GitHub Release.
 
 ## Hotfix
 

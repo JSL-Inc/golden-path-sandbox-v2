@@ -1,32 +1,84 @@
-# POC demonstration plan
+# POC demonstration walkthrough
 
-1. Show the four v2 repositories and responsibility split.
-2. Create `develop-s34` from `feature-eint1-f26`.
-3. Change application code and tests.
-4. Open a PR into `feature-eint1-f26` using the template.
-5. Demonstrate a failing test blocking Standard CI.
-6. Fix the test and show JUnit XML, Cobertura XML, and 80% enforcement.
-7. Obtain the required approval and squash merge.
-8. Promote feature to `release-eqa-poc-release`.
-9. Run integration and regression workflows.
-10. Promote release to `main`.
-11. Show the `major`, `minor`, or `patch` PR label validated by the PR-policy check.
-12. Calculate the semantic version.
-13. Show the immutable artifact from the CI run.
-14. Promote the artifact through Integration and QA.
-15. Show environment approval for Production.
-16. Run production verification and retain its evidence artifact.
-17. Supply that successful verification run ID to create the final tag and GitHub Release.
-18. Show CodeQL/dependency evidence and advisory DAST output.
-19. Demonstrate hotfix synchronization back through release and feature.
+The normal path is automatic. Manual deployment, DAST, system, and performance
+workflows are recovery or optional demonstrations, not prerequisites.
+
+## Before the meeting
+
+1. Apply the rulesets in `governance/rulesets/`.
+2. Configure `eint1`–`eint6`, `eqa`, `epreprod`, and `prod` from
+   `governance/environments.json`.
+3. Add reviewers to `eqa`, `epreprod`, and `prod`; enable prevent self-review.
+4. Create the `major`, `minor`, and `patch` labels.
+5. Create `release-eqa-poc-release`, then `feature-eint1-f26`, then `develop-s34`.
+
+## What the audience sees
+
+### 1. Story development
+
+Push an application and unit-test change to `develop-s34`.
+
+- Exactly one **Branch CI and Delivery** run appears.
+- Standard CI runs tests before build.
+- JUnit XML, Cobertura XML, checksum, and `application-package` are retained.
+- Coverage below 80% or any failed test blocks promotion.
+- No deployment runs because a develop branch is local-development scope.
+
+Opening `develop-s34 → feature-eint1-f26` starts the PR-policy check and the
+optional security scan. Standard CI is not duplicated on the PR event.
+
+### 2. Feature integration
+
+After approval, squash merge into `feature-eint1-f26`.
+
+- One **Branch CI and Delivery** run validates the feature head.
+- Integration testing runs in the same workflow.
+- The resulting artifact automatically deploys to `eint1`.
+- A smoke-test result and GitHub Environment deployment record are retained.
+
+Open `feature-eint1-f26 → release-eqa-poc-release`. The ruleset requires Standard CI,
+Integration Test, PR policy, and the configured approvals.
+
+### 3. Release candidate
+
+After approval, squash merge into `release-eqa-poc-release`.
+
+- One **Branch CI and Delivery** run executes Standard CI, integration, and
+  regression.
+- That run creates the release-candidate artifact once.
+- The same artifact automatically requests deployment to `eqa`.
+- After the EQA Environment gate, the same artifact requests `epreprod`.
+- After the preproduction gate, the release candidate is ready for production.
+
+Open `release-eqa-poc-release → main` and add exactly one `major`, `minor`, or `patch`
+label. PR policy shows why zero or two labels are rejected. Obtain the two
+required approvals and merge.
+
+### 4. Production and official release
+
+The merge starts one **Production Release** run.
+
+- It resolves the merged release PR and the successful release-branch run.
+- It downloads that run's artifact; it does not rebuild on `main`.
+- It requests the protected `prod` Environment.
+- After approval, it deploys, smoke tests, and performs production verification.
+- It validates verification evidence against the merged main commit.
+- It calculates the next SemVer from the PR label.
+- It creates the `vMAJOR.MINOR.PATCH` tag and GitHub Release automatically.
+
+### 5. Optional controls
+
+Show CodeQL/security results separately. Run DAST, system, or performance tests
+manually if they help the audience; they do not generate a second copy of core
+CI. Show **Rollback or Redeploy Artifact** as the operator recovery path.
 
 ## Acceptance
 
-- Direct updates to protected branches are blocked
-- Pull requests and required checks are enforced
-- Test or coverage failure blocks merge
-- JUnit and Cobertura evidence is retained
-- Build output is promoted without rebuilding
-- Production requires protected-environment approval
-- Release is created only after production verification
-- Optional controls can be enabled without restructuring the core solution
+- A real branch push creates one core CI/delivery run.
+- Branch-creation records skip all jobs until content is pushed.
+- Direct updates to protected branches are blocked.
+- PR transitions and release classification are enforced.
+- JUnit, Cobertura, build checksum, and deployment evidence are retained.
+- The release artifact is promoted without rebuilding.
+- Protected Environment reviewers can pause shared and production deployment.
+- A GitHub Release appears only after matching production verification.

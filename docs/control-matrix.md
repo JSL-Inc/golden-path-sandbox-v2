@@ -17,9 +17,9 @@
 | Artifact publishing | Workflow adapter | Technical/demonstrated | Central workflow | Required |
 | Integration deployment | GitHub Environment workflow | Repository-enabled | Environment and workflow | Deployable apps |
 | Smoke test | Deployment workflow | Technical | Central workflow | Required |
-| CodeQL | Reusable security workflow | Repository-enabled | Central workflow/GHAS | Required design |
+| CodeQL | Reusable security workflow | Repository-enabled | Central workflow/GHAS | Optional POC control |
 | Secret scanning | Repository setting | Platform setting | Advanced Security settings | Required design |
-| Dependency review | Reusable security workflow | Technical when available | Central workflow | Required design |
+| Dependency review | Reusable security workflow | Technical when dependency graph is enabled | Central workflow | Optional POC control |
 | DAST | Reusable ZAP workflow | Advisory initially | Central workflow | Conditional |
 | Production approval | Protected Environment | Technical/organizational | Environment settings | Required |
 | Release SemVer | Reusable release workflow | Validated | Central workflow | Required |

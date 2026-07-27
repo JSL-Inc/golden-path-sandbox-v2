@@ -1,25 +1,28 @@
-name: Standard CI
+name: Branch CI and Delivery
 
 on:
-  pull_request:
   push:
-    branches: [main, "release-*", "feature-*"]
+    branches:
+      - "develop-*"
+      - "feature-*"
+      - "release-*"
+      - "hotfix-*"
   workflow_dispatch:
     inputs:
       transition_exception:
-        description: Approved exception reference; leave blank to enforce 80%
+        description: Approved coverage exception reference; blank enforces 80%
         required: false
         type: string
         default: ""
 
 permissions:
   actions: read
-  contents: write
+  contents: read
   id-token: write
-  pull-requests: write
+  pull-requests: read
 
 concurrency:
-  group: standard-ci-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  group: branch-ci-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,91 +43,167 @@ jobs:
       artifact_name: application-package
       artifact_path: dist/**
 
-  deploy-eint1:
+  integration-test:
+    name: Integration Test
     needs: standard-ci
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'feature-eint1-')
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: eint1, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
-    secrets: inherit
-  deploy-eint2:
-    needs: standard-ci
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'feature-eint2-')
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: eint2, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
-    secrets: inherit
-  deploy-eint3:
-    needs: standard-ci
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'feature-eint3-')
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: eint3, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
-    secrets: inherit
-  deploy-eint4:
-    needs: standard-ci
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'feature-eint4-')
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: eint4, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
-    secrets: inherit
-  deploy-eint5:
-    needs: standard-ci
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'feature-eint5-')
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: eint5, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
-    secrets: inherit
-  deploy-eint6:
-    needs: standard-ci
-    if: github.event_name == 'push' && startsWith(github.ref_name, 'feature-eint6-')
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: eint6, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
-    secrets: inherit
-
-  resolve-main-release:
-    needs: standard-ci
-    if: github.event_name == 'push' && github.ref_name == 'main'
+    if: >-
+      startsWith(github.ref_name, 'feature-') ||
+      startsWith(github.ref_name, 'release-') ||
+      startsWith(github.ref_name, 'hotfix-')
     runs-on: ubuntu-latest
-    outputs:
-      pr_number: ${{ steps.context.outputs.pr_number }}
-    steps:
-      - id: context
+    services:
+      postgres:
+        image: postgres:16
         env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          gh api --paginate -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" > prs.json
-          python - <<'PY'
-          import json
-          import os
-          with open("prs.json", encoding="utf-8") as source:
-              pull_requests = json.load(source)
-          matches = [pr for pr in pull_requests if pr.get("base", {}).get("ref") == "main" and pr.get("merged_at")]
-          if len(matches) > 1:
-              raise SystemExit("More than one merged pull request is associated with this main commit")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"pr_number={matches[0]['number'] if matches else ''}\n")
-          PY
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: golden_path
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Prepare
+        run: bash .github/golden-path/prepare.sh
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/golden_path
+        run: bash .github/golden-path/integration-test.sh
+      - name: Publish integration evidence
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: integration-evidence
+          path: reports/integration/**
+          if-no-files-found: error
 
-  deploy-prod:
-    needs: [standard-ci, resolve-main-release]
-    if: needs.resolve-main-release.outputs.pr_number != ''
+  regression-test:
+    name: Regression Test
+    needs: standard-ci
+    if: >-
+      startsWith(github.ref_name, 'release-') ||
+      startsWith(github.ref_name, 'hotfix-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Prepare
+        run: bash .github/golden-path/prepare.sh
+      - name: Run regression tests
+        run: bash .github/golden-path/regression-test.sh
+      - name: Publish regression evidence
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: regression-evidence
+          path: reports/regression/**
+          if-no-files-found: error
+
+  deploy-eint1:
+    name: Deploy eint1
+    needs: [standard-ci, integration-test]
+    if: startsWith(github.ref_name, 'feature-eint1-')
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with: { environment_name: prod, artifact_name: application-package, artifact_run_id: '${{ github.run_id }}', deploy_command: 'bash .github/golden-path/deploy.sh', smoke_test_command: 'bash .github/golden-path/smoke-test.sh' }
+    with:
+      environment_name: eint1
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
 
-  production-verification:
-    needs: deploy-prod
-    if: needs.deploy-prod.result == 'success'
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-production-verification.yml@v2
+  deploy-eint2:
+    name: Deploy eint2
+    needs: [standard-ci, integration-test]
+    if: startsWith(github.ref_name, 'feature-eint2-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
     with:
-      release_version: pending-automatic-release
-      source_sha: ${{ github.sha }}
-      verification_command: bash .github/golden-path/production-verify.sh
+      environment_name: eint2
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
 
-  semantic-release:
-    needs: [resolve-main-release, production-verification]
-    if: needs.production-verification.result == 'success'
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-release.yml@v2
+  deploy-eint3:
+    name: Deploy eint3
+    needs: [standard-ci, integration-test]
+    if: startsWith(github.ref_name, 'feature-eint3-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
     with:
-      release_pr_number: ${{ needs.resolve-main-release.outputs.pr_number }}
-      verification_run_id: ${{ github.run_id }}
-      release_commit_sha: ${{ github.sha }}
-      dry_run: false
+      environment_name: eint3
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-eint4:
+    name: Deploy eint4
+    needs: [standard-ci, integration-test]
+    if: startsWith(github.ref_name, 'feature-eint4-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: eint4
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-eint5:
+    name: Deploy eint5
+    needs: [standard-ci, integration-test]
+    if: startsWith(github.ref_name, 'feature-eint5-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: eint5
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-eint6:
+    name: Deploy eint6
+    needs: [standard-ci, integration-test]
+    if: startsWith(github.ref_name, 'feature-eint6-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: eint6
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-eqa:
+    name: Deploy eqa
+    needs: [standard-ci, integration-test, regression-test]
+    if: >-
+      startsWith(github.ref_name, 'release-') ||
+      startsWith(github.ref_name, 'hotfix-')
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: eqa
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit
+
+  deploy-epreprod:
+    name: Deploy epreprod
+    needs: deploy-eqa
+    if: needs.deploy-eqa.result == 'success'
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
+    with:
+      environment_name: epreprod
+      artifact_name: application-package
+      artifact_run_id: ${{ github.run_id }}
+      deploy_command: bash .github/golden-path/deploy.sh
+      smoke_test_command: bash .github/golden-path/smoke-test.sh
+    secrets: inherit

@@ -13,7 +13,8 @@
 2. Replace the sample application and scripts beneath `.github/golden-path/`.
 3. Replace `@jacoblaw1` with approved CODEOWNERS teams.
 4. Run each workflow once before selecting its exact check name in a ruleset.
-5. Create the labels listed in `governance/settings.md`.
+5. Create the labels listed in `governance/settings.md`; only the three SemVer
+   labels affect automatic release versioning.
 
 ## 3. Repository settings
 
@@ -43,7 +44,7 @@ Role-specific Developer/Maintainer and leadership/security approval requires rea
 
 ## 5. Environments
 
-Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` from `governance/environments.json`. Add real reviewers, branch policies, scoped secrets/variables, and prevent self-review for protected stages. EINT deployments are automatic after successful feature-branch CI; use the **Promote Artifact** workflow for controlled EQA/ePreProd promotion.
+Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` from `governance/environments.json`. Add real reviewers, branch policies, scoped secrets/variables, and prevent self-review for protected stages. EINT, EQA, ePreProd, and production requests are automatic. Environment reviewers provide the human gates. Use **Rollback or Redeploy Artifact** only for recovery.
 
 ## 6. Demonstration branches
 
@@ -51,7 +52,9 @@ Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` from `governance/e
 - `feature-eint1-f26` from that release branch
 - `develop-s34` from that feature branch
 
-Use pull requests to promote develop → feature → release → main.
+Use pull requests to promote develop → feature → release → main. The release
+branch name no longer selects only one shared stage; the same release candidate
+automatically moves through both EQA and ePreProd.
 
 ## 7. Evidence
 

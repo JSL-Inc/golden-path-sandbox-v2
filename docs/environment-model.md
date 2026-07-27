@@ -3,18 +3,23 @@
 | GitHub Environment | Branch mapping | Trigger | Protection | Deployment behavior |
 |---|---|---|---|---|
 | `eint1`–`eint6` | `feature-eint1-*`–`feature-eint6-*` | Successful Standard CI push | None by default | Automatic deployment and smoke test |
-| `eqa` | `release-eqa-*`, `hotfix-eqa-*` | Controlled promotion | QA/business reviewers where required | Manual promotion of an immutable CI artifact |
-| `epreprod` | `release-epreprod-*`, `hotfix-epreprod-*` | Controlled promotion | Release approver where required | Manual promotion of an immutable CI artifact |
-| `prod` | `main` | Successful Standard CI after merge | Production reviewers; prevent self-review | Automatic request; GitHub Environment approval gates execution |
+| `eqa` | `release-*`, `hotfix-*` | Successful release/hotfix validation | QA/business reviewers where required | Automatic request using the immutable release artifact |
+| `epreprod` | `release-*`, `hotfix-*` | Successful EQA deployment | Release approver where required | Automatic request using the same immutable release artifact |
+| `prod` | `main` | Merged release/hotfix PR | Production reviewers; prevent self-review | Automatic request using the same artifact promoted through QA/preprod |
 
 ## Promotion behavior
 
-1. Standard CI produces one immutable artifact.
-2. A successful push to `feature-eintN-*` automatically deploys that artifact to `eintN`.
-3. A release or hotfix artifact is manually promoted to shared `eqa` or `epreprod` using **Promote Artifact**.
-4. A successful `main` CI requests the protected `prod` environment and waits for its configured approval.
-5. A successful production deployment starts production verification automatically.
-6. Successful verification starts Semantic Release automatically; it reads the merged PR's SemVer label and creates the matching tag and GitHub Release.
+1. `Branch CI and Delivery` produces one immutable artifact for a real branch push.
+2. A successful `feature-eintN-*` push automatically deploys its artifact to `eintN`.
+3. A successful `release-*` or `hotfix-*` push runs integration and regression once, requests `eqa`, then requests `epreprod` with the same artifact.
+4. Merging that release/hotfix PR to `main` starts `Production Release`; it locates the successful source-branch run instead of rebuilding.
+5. The protected `prod` Environment pauses for approval when reviewers are configured.
+6. Production verification runs automatically after deployment.
+7. Semantic Release reads the merged PR's single SemVer label and creates the matching tag and GitHub Release.
+
+The manual **Rollback or Redeploy Artifact** workflow is a recovery control. Run
+it from a source branch permitted by the selected Environment; it is not part of
+the normal demonstration path.
 
 Deployment concurrency is scoped to repository and environment. `cancel-in-progress: false` prevents a running deployment from being interrupted.
 

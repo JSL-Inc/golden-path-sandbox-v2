@@ -1,10 +1,10 @@
-name: Promote Artifact
+name: Rollback or Redeploy Artifact
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Target protected GitHub Environment for a controlled promotion
+        description: Recovery target; normal promotion is automatic
         required: true
         type: choice
         options: [eint1, eint2, eint3, eint4, eint5, eint6, eqa, epreprod, prod]
@@ -13,7 +13,7 @@ on:
         type: string
         default: application-package
       artifact_run_id:
-        description: Successful Standard CI run that produced the immutable artifact
+        description: Successful Branch CI and Delivery run that produced the immutable artifact
         required: true
         type: number
       environment_url:
@@ -26,9 +26,8 @@ permissions:
   contents: read
   id-token: write
 
-# Use this workflow for controlled promotion to shared eqa/epreprod or for a rollback.
-# Automatic eint1–eint6 and prod deployment is performed inside Standard CI so the
-# deployment retains the actual source branch required by GitHub Environment rules.
+# Recovery workflow only. Run it from a branch allowed by the selected GitHub
+# Environment. The normal EINT, EQA, ePreProd, and production path is automatic.
 jobs:
   deploy-controlled:
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
