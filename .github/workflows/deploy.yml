@@ -13,9 +13,9 @@ on:
         type: string
         default: application-package
       artifact_run_id:
-        description: Successful Branch CI and Delivery run that produced the immutable artifact
+        description: Successful Branch CI and Delivery run ID that produced the immutable artifact
         required: true
-        type: number
+        type: string
       environment_url:
         required: false
         type: string
