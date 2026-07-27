@@ -54,7 +54,7 @@ The current-state standard allows direct emergency changes on unprotected hotfix
 | Preproduction | `release-epreprod-*` / `hotfix-epreprod-*` | Protected; release approval |
 | Production | `main` | Protected; self-review prevented and leadership approval |
 
-`release-eqa-*` and `hotfix-eqa-*` deploy to EQA and optionally continue to ePreProd when the repository variable `PROMOTE_EQA_TO_EPREPROD` is `true`. `release-epreprod-*` and `hotfix-epreprod-*` start directly at ePreProd. This supports EQA, ePreProd, or both without rebuilding.
+For this POC, the release or hotfix branch selects one shared environment from its name: `*-eqa-*` deploys to EQA and `*-epreprod-*` deploys to ePreProd.
 
 ## Releases
 
