@@ -1,6 +1,9 @@
 name: Semantic Release
 
 on:
+  workflow_run:
+    workflows: ["Production Verification"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       release_pr_number:
@@ -12,6 +15,11 @@ on:
         required: false
         type: number
         default: 0
+      release_commit_sha:
+        description: Deployed and verified main commit SHA; blank uses the selected ref
+        required: false
+        type: string
+        default: ""
       dry_run:
         description: Calculate without creating the tag or GitHub Release
         required: true
@@ -24,9 +32,62 @@ permissions:
   pull-requests: read
 
 jobs:
-  release:
+  resolve-automatic-release:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      source_sha: ${{ steps.context.outputs.source_sha }}
+    steps:
+      - id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          gh api --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/commits/${SOURCE_SHA}/pulls" > prs.json
+          python - <<'PY'
+          import json
+          import os
+
+          with open("prs.json", encoding="utf-8") as source:
+              pull_requests = json.load(source)
+          matches = [
+              pr for pr in pull_requests
+              if pr.get("base", {}).get("ref") == "main" and pr.get("merged_at")
+          ]
+          if len(matches) != 1:
+              raise SystemExit(
+                  "Expected exactly one merged pull request associated with the production commit"
+              )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"pr_number={matches[0]['number']}\n")
+              output.write(f"source_sha={os.environ['SOURCE_SHA']}\n")
+          PY
+
+  release-automatically:
+    needs: resolve-automatic-release
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      needs.resolve-automatic-release.outputs.pr_number != ''
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-release.yml@v2
+    with:
+      release_pr_number: ${{ needs.resolve-automatic-release.outputs.pr_number }}
+      verification_run_id: ${{ github.event.workflow_run.id }}
+      release_commit_sha: ${{ needs.resolve-automatic-release.outputs.source_sha }}
+      dry_run: false
+
+  release-manually:
+    if: github.event_name == 'workflow_dispatch'
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-release.yml@v2
     with:
       release_pr_number: ${{ inputs.release_pr_number }}
       verification_run_id: ${{ inputs.verification_run_id }}
+      release_commit_sha: ${{ inputs.release_commit_sha }}
       dry_run: ${{ inputs.dry_run }}
