@@ -24,7 +24,7 @@ These settings cannot be represented by committed files alone.
 
 ## Environments
 
-Create Integration, QA, Preproduction, and Production using `environments.json`. Add approved team/user reviewers before enabling the production gate.
+Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` using `environments.json`. Add approved team/user reviewers before enabling the `prod` gate. Dedicated EINT environments can deploy automatically; shared EQA/ePreProd promotions remain controlled.
 
 ## Rulesets
 
