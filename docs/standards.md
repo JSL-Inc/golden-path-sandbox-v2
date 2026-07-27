@@ -54,14 +54,14 @@ The current-state standard allows direct emergency changes on unprotected hotfix
 | Preproduction | `release-epreprod-*` / `hotfix-epreprod-*` | Protected; release approval |
 | Production | `main` | Protected; self-review prevented and leadership approval |
 
-A release or hotfix branch selects exactly one shared environment from its name; EQA and ePreProd are not chained.
+`release-eqa-*` and `hotfix-eqa-*` deploy to EQA and optionally continue to ePreProd when the repository variable `PROMOTE_EQA_TO_EPREPROD` is `true`. `release-epreprod-*` and `hotfix-epreprod-*` start directly at ePreProd. This supports EQA, ePreProd, or both without rebuilding.
 
 ## Releases
 
 - Calculate `MAJOR.MINOR.PATCH`
 - Build once
-- Publish the versioned artifact to Artifactory in production
-- Promote the same artifact through the selected shared environment and production
+- Retain the immutable build as a GitHub Actions artifact for this POC; Artifactory integration is outside scope
+- Promote that same artifact through the configured shared environment path and production
 - Verify production
 - Retain the successful production-verification evidence artifact
 - Create the official tag and GitHub Release only when that matching evidence is supplied
