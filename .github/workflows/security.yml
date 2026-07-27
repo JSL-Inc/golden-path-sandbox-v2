@@ -18,6 +18,7 @@ permissions:
 jobs:
   security:
     name: Security Scanning
+    if: github.event_name != 'push' || github.event.created == false
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-security.yml@v2
     with:
       languages: '["python"]'
