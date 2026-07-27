@@ -25,6 +25,7 @@ concurrency:
 jobs:
   standard-ci:
     name: Standard CI
+    if: github.event_name != 'push' || github.event.created == false
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-ci.yml@v2
     with:
       prepare_command: bash .github/golden-path/prepare.sh

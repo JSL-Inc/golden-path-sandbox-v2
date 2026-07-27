@@ -15,6 +15,7 @@ permissions:
 jobs:
   integration:
     name: Integration Test
+    if: github.event_name != 'push' || github.event.created == false
     runs-on: ubuntu-latest
     services:
       postgres:
