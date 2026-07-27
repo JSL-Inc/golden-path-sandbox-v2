@@ -11,6 +11,7 @@
 - Added production-verification evidence and required matching evidence before a live GitHub Release.
 - Aligned deployment environments to `eint1`–`eint6`, `eqa`, `epreprod`, and `prod`; dedicated EINT deployments now start after successful feature CI, while EQA/ePreProd remain controlled promotions.
 - Wired successful protected production deployment to production verification and then automatic SemVer tag/GitHub Release creation using the merged PR label.
+- Corrected automatic deployment placement: EINT and production jobs run inside Standard CI so GitHub Environment branch rules evaluate the actual feature or `main` branch rather than the default branch of a `workflow_run` listener.
 - Added CodeQL, dependency review, Dependabot, secret-protection guidance, and tab-correct ZAP rules.
 - Allowed governed Dependabot-to-main PRs while retaining checks and an implicit `patch` classification when the label is unavailable.
 - Added integration, regression, system, and performance extension workflows.
