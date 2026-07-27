@@ -16,17 +16,14 @@ workflow classifies the dependency update as `patch`.
 
 1. Classify the release PR.
 2. Merge the validated release or hotfix branch to `main`.
-3. Supply the merged release PR number; the workflow reads its single release label.
-4. Calculate the next version from the latest `vMAJOR.MINOR.PATCH` tag.
-5. Produce the versioned immutable artifact; the production adapter publishes it to Artifactory.
-6. Promote that artifact through QA and Production.
-7. Run production verification.
-8. Retain `production-verification-<version>` evidence.
-9. Supply the successful verification run ID to the release workflow.
-10. Confirm the evidence version matches the calculated release version.
-11. Create the Git tag and generated GitHub Release.
+3. The successful `main` CI requests the protected `prod` Environment with its immutable artifact.
+4. After Environment approval and a successful deployment, production verification runs automatically.
+5. Semantic Release identifies the merged PR associated with the deployed main commit.
+6. It reads the single release label and calculates the next version from the latest `vMAJOR.MINOR.PATCH` tag.
+7. It validates the production-verification evidence against the deployed commit.
+8. It creates the Git tag and generated GitHub Release.
 
-Dry-run mode calculates the next version without creating a tag or release. GitHub rejects an existing duplicate tag/release, preventing accidental duplicate publication.
+Manual dry-run mode remains available for testing the version calculation without creating a tag or release. GitHub rejects an existing duplicate tag/release, preventing accidental duplicate publication.
 
 ## Hotfix
 
