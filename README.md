@@ -14,7 +14,7 @@ Runnable demonstration repository generated from `golden-path-template-v2`.
 - Blocking build and code-quality checks
 - CodeQL, dependency review, Dependabot, and secret-protection guidance
 - OWASP ZAP DAST against non-production targets
-- Build-once artifact promotion through Integration, QA, Preproduction, and Production
+- Build-once artifact promotion through `eint1`–`eint6`, `eqa`, `epreprod`, and `prod`
 - Semantic versioning and verified release creation
 - Production verification and rollback guidance
 - API-ready ruleset and environment specifications
