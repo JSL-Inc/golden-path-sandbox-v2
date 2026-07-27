@@ -163,7 +163,7 @@ jobs:
     with:
       environment_name: prod
       artifact_name: application-package
-      artifact_run_id: ${{ needs.resolve-release.outputs.artifact_run_id }}
+      artifact_run_id: ${{ fromJSON(needs.resolve-release.outputs.artifact_run_id) }}
       deploy_command: bash .github/golden-path/deploy.sh
       smoke_test_command: bash .github/golden-path/smoke-test.sh
     secrets: inherit
