@@ -50,10 +50,9 @@ After approval, squash merge into `release-eqa-poc-release`.
 - One **Branch CI and Delivery** run executes Standard CI, integration, and
   regression.
 - That run creates the release-candidate artifact once.
-- `release-eqa-*` and `hotfix-eqa-*` request the protected `eqa` Environment.
-- When `PROMOTE_EQA_TO_EPREPROD` is `true`, the same artifact continues to protected `epreprod` after EQA succeeds.
-- `release-epreprod-*` and `hotfix-epreprod-*` start directly at protected `epreprod`.
-- After the configured shared-environment path, the release candidate is ready for production.
+- `release-eqa-*` and `hotfix-eqa-*` request only the protected `eqa` Environment.
+- `release-epreprod-*` and `hotfix-epreprod-*` request only the protected `epreprod` Environment.
+- After the selected shared-environment gate, the release candidate is ready for production.
 
 Open `release-eqa-poc-release → main` and add exactly one `major`, `minor`, or `patch`
 label. PR policy shows why zero or two labels are rejected. Obtain the two
@@ -85,5 +84,5 @@ CI. Show **Rollback or Redeploy Artifact** as the operator recovery path.
 - PR transitions and release classification are enforced.
 - JUnit, Cobertura, build checksum, and deployment evidence are retained.
 - The release artifact is promoted without rebuilding.
-- Protected Environment reviewers can pause each configured shared deployment and production deployment.
+- Protected Environment reviewers can pause the selected shared deployment and production deployment.
 - A GitHub Release appears only after matching production verification.
