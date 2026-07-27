@@ -33,6 +33,10 @@ Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` using `environment
 
 Apply the JSON specifications in `governance/rulesets/` after each named status check has completed successfully at least once. GitHub only allows selecting a required check after it has reported in the repository recently.
 
+Enable **Do not require status checks on creation**. Branch creation can then
+complete without a meaningless CI run; the first subsequent content push
+produces the required evidence.
+
 The current GitLab standard leaves hotfix branches unprotected. For the GitHub future state, use an expedited PR and narrowly scoped audited bypass rather than normal direct pushes.
 
 ## Community repository
