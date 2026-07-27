@@ -1,38 +1,11 @@
 {
-  "Integration": {
-    "wait_timer": 0,
-    "prevent_self_review": false,
-    "deployment_branch_policy": {
-      "protected_branches": false,
-      "custom_branch_policies": true
-    },
-    "branch_patterns": ["feature-*", "release-*"]
-  },
-  "QA": {
-    "wait_timer": 0,
-    "prevent_self_review": true,
-    "deployment_branch_policy": {
-      "protected_branches": false,
-      "custom_branch_policies": true
-    },
-    "branch_patterns": ["release-*", "hotfix-*"]
-  },
-  "Preproduction": {
-    "wait_timer": 0,
-    "prevent_self_review": true,
-    "deployment_branch_policy": {
-      "protected_branches": false,
-      "custom_branch_policies": true
-    },
-    "branch_patterns": ["release-*", "hotfix-*"]
-  },
-  "Production": {
-    "wait_timer": 0,
-    "prevent_self_review": true,
-    "deployment_branch_policy": {
-      "protected_branches": true,
-      "custom_branch_policies": false
-    },
-    "branch_patterns": ["main", "v*"]
-  }
+  "eint1": {"wait_timer": 0, "prevent_self_review": false, "branch_patterns": ["feature-eint1-*"]},
+  "eint2": {"wait_timer": 0, "prevent_self_review": false, "branch_patterns": ["feature-eint2-*"]},
+  "eint3": {"wait_timer": 0, "prevent_self_review": false, "branch_patterns": ["feature-eint3-*"]},
+  "eint4": {"wait_timer": 0, "prevent_self_review": false, "branch_patterns": ["feature-eint4-*"]},
+  "eint5": {"wait_timer": 0, "prevent_self_review": false, "branch_patterns": ["feature-eint5-*"]},
+  "eint6": {"wait_timer": 0, "prevent_self_review": false, "branch_patterns": ["feature-eint6-*"]},
+  "eqa": {"wait_timer": 0, "prevent_self_review": true, "branch_patterns": ["release-eqa-*", "hotfix-eqa-*"]},
+  "epreprod": {"wait_timer": 0, "prevent_self_review": true, "branch_patterns": ["release-epreprod-*", "hotfix-epreprod-*"]},
+  "prod": {"wait_timer": 0, "prevent_self_review": true, "branch_patterns": ["main"]}
 }
