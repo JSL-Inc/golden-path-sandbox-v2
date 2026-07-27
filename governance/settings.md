@@ -29,6 +29,12 @@ are classification/evidence labels and do not change version calculation.
 
 Create `eint1` through `eint6`, `eqa`, `epreprod`, and `prod` using `environments.json`. Add approved team/user reviewers before enabling shared-stage gates. All deployment requests are automatic; configured Environment reviewers control when EQA, ePreProd, and production jobs proceed.
 
+## Actions variables
+
+- Leave `PROMOTE_EQA_TO_EPREPROD` unset or set it to `false` when an EQA release should stop after EQA.
+- Set `PROMOTE_EQA_TO_EPREPROD` to `true` when `release-eqa-*` and `hotfix-eqa-*` should promote the same artifact through EQA and then ePreProd.
+- `release-epreprod-*` and `hotfix-epreprod-*` always start directly at ePreProd.
+
 ## Rulesets
 
 Apply the JSON specifications in `governance/rulesets/` after each named status check has completed successfully at least once. GitHub only allows selecting a required check after it has reported in the repository recently.
