@@ -2,13 +2,7 @@ name: Pull Request Policy
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - labeled
-      - unlabeled
-      - ready_for_review
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
 
 permissions:
   contents: read
@@ -16,5 +10,50 @@ permissions:
 
 jobs:
   policy:
-    name: Pull Request Policy
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-pr-policy.yml@v2
+    name: Branch and Release Policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch flow
+        shell: bash
+        env:
+          SOURCE: ${{ github.head_ref }}
+          TARGET: ${{ github.base_ref }}
+        run: |
+          case "$SOURCE:$TARGET" in
+            develop-*:feature-eint[1-6]-f[0-9]* | \
+            feature-eint[1-6]-f[0-9]*:release-eqa-* | \
+            feature-eint[1-6]-f[0-9]*:release-epreprod-* | \
+            release-eqa-*:main | release-epreprod-*:main | \
+            hotfix-eqa-*:main | hotfix-epreprod-*:main | \
+            release-eqa-*:simple-release | release-epreprod-*:simple-release | \
+            hotfix-eqa-*:simple-release | hotfix-epreprod-*:simple-release)
+              echo "Allowed promotion: $SOURCE -> $TARGET"
+              ;;
+            *)
+              echo "::error::Unsupported promotion: $SOURCE -> $TARGET"
+              exit 1
+              ;;
+          esac
+
+      - name: Require exactly one release label
+        if: github.base_ref == 'main' || github.base_ref == 'simple-release'
+        shell: bash
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          count=0
+          selected=""
+
+          for label in major minor patch; do
+            if [[ " $LABELS " == *" $label "* ]]; then
+              count=$((count + 1))
+              selected="$label"
+            fi
+          done
+
+          if [[ "$count" -ne 1 ]]; then
+            echo "::error::Add exactly one release label: major, minor, or patch."
+            exit 1
+          fi
+
+          echo "Release bump: $selected"
