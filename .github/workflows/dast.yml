@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   dast:
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-dast.yml@simplified-version-1
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-dast.yml@simplified-version-2
     with:
       target_url: ${{ inputs.target_url }}
       rules_file: .zap/rules.tsv

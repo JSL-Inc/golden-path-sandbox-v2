@@ -15,15 +15,6 @@
 - [ ] Documentation
 - [ ] Pipeline/infrastructure
 
-## Release impact
-
-- [ ] `major`
-- [ ] `minor`
-- [ ] `patch`
-- [ ] No release impact
-
-> Exactly one release-impact option is required when targeting `main`.
-
 ## Testing evidence
 
 - [ ] Unit tests added or updated

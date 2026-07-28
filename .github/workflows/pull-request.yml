@@ -14,6 +14,6 @@ permissions:
 
 jobs:
   required:
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/required-pr.yml@simplified-version-1
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/required-pr.yml@simplified-version-2
     with:
-      production_branch: simplified-version-1
+      production_branch: simplified-version-2

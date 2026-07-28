@@ -9,7 +9,7 @@ The POC expects these organization-level settings:
 - native ruleset rules for code scanning, code quality, and minimum 80% coverage
 - GitHub Environments: `eint1`–`eint6`, `eqa`, `epreprod`, and `prod`
 
-For the branch-only experiment, temporarily allow `simplified-version-1` in
+For the branch-only experiment, temporarily allow `simplified-version-2` in
 the `prod` environment deployment-branch policy and target it with the desired
 approval ruleset. Remove those temporary allowances after testing.
 

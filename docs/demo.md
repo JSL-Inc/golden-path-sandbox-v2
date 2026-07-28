@@ -7,7 +7,8 @@
 4. Merge: tag `f26` is created and the release artifact deploys to the selected
    shared environment.
 5. For this isolated branch test, open the release branch into
-   `simplified-version-1`: the PR workflow finds the successful EQA or ePreProd
+   `simplified-version-2`: the PR workflow finds the successful EQA or ePreProd
    deployment rather than requesting another deployment.
 6. Merge: the same artifact deploys to prod, is smoke tested and verified, then
-   receives its semantic tag and GitHub Release. `main` is not changed.
+   receives the automatic `v0.0.<delivery-run-number>` tag and GitHub Release.
+   No label is needed and `main` is not changed.
