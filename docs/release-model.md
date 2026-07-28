@@ -1,60 +1,49 @@
-# Release and semantic-version model
+# Simple release model
 
-## Classification
+## One required label
 
-Every pull request entering `main` must have exactly one label:
+Every release or hotfix pull request entering `main` has exactly one label:
 
-- `major`: incompatible or significant change
-- `minor`: backward-compatible feature
-- `patch`: backward-compatible correction or hotfix
+- `major` for an incompatible or significant change
+- `minor` for a backward-compatible feature
+- `patch` for a backward-compatible fix
 
-The PR-policy workflow rejects missing or duplicate classifications.
-Dependabot PRs are the narrow exception: when no release label exists, the
-workflow classifies the dependency update as `patch`.
+`Pull Request Policy` blocks the pull request when none or more than one of
+these labels is present.
 
-## Feature traceability tag
+## What happens after merge
 
-When a pull request from `feature-eint1-6-f###` is merged into
-`release-eqa-*` or `release-epreprod-*`, the merge automatically creates the
-matching lightweight `f###` Git tag on the release-branch merge commit. For
-example, merging `feature-eint1-f26` creates tag `f26`.
+The merged pull request event already contains the source branch, commit, and
+labels, so the workflow does not rediscover them with custom code.
 
-This tag records which Rally feature entered the release line. It does not
-calculate or change the final semantic version. Re-running the workflow is a
-successful no-op when the tag already points to the same commit and fails
-safely when the tag points to a different commit.
+1. Read the single release label.
+2. Find the latest `vMAJOR.MINOR.PATCH` Git tag.
+3. Calculate the next version with a short Bash `case`.
+4. Find and download the successful CI artifact for the release branch.
+5. Request the protected `prod` Environment.
+6. Deploy, smoke test, and record production verification.
+7. Create the Git tag and GitHub Release with the artifact and verification
+   evidence attached.
 
-## Release sequence
+The workflow is rerun-safe: if the merged commit already has a SemVer tag or
+the GitHub Release already exists, it reuses it.
 
-1. Classify the release PR.
-2. Merge the validated release or hotfix branch to `main`.
-3. `Production Release` identifies the merged release/hotfix PR and its successful `Branch CI and Delivery` run.
-4. It promotes that source run's immutable artifact to the protected `prod` Environment; `main` is not rebuilt.
-5. After Environment approval and a successful deployment, production verification runs automatically.
-6. Semantic Release uses the merged PR associated with the deployed main commit.
-7. It reads the single release label and calculates the next version from the latest `vMAJOR.MINOR.PATCH` tag.
-8. It validates the production-verification evidence against the deployed commit.
-9. It creates the Git tag and generated GitHub Release.
+There is no version file to maintain, no version-update commit, and no reusable
+release workflow caller. Git tags and GitHub Releases are the source of truth.
 
-Dependabot branches execute the same CI, integration, regression, artifact,
-production, verification, and release sequence. Their missing SemVer label is
-treated as `patch`; an explicit SemVer label still takes precedence.
+## Feature traceability
 
-Manual recovery inputs remain on `Production Release` for an operator to supply
-the merged PR, artifact run, and main commit if automatic discovery is
-interrupted. Release creation is idempotent: a rerun reuses an existing SemVer
-tag on the same commit and does not create a duplicate GitHub Release.
+Merging `feature-eint1-f26` into a release branch creates the lightweight `f26`
+tag on that release-branch merge commit. The feature tag is traceability only;
+it does not choose or change the semantic version.
 
-## Hotfix
+## POC artifact storage
 
-A hotfix uses `patch`, skips the feature-ID tag, and follows the same artifact, production-verification, and final-release gates. After merging to `main`, the change is synchronized into active release and feature branches.
+The POC keeps the build in GitHub Actions and promotes that same artifact
+without rebuilding. The GitHub Release attaches:
 
-## Artifactory production adapter
+- the packaged application artifact
+- production-verification evidence
+- the source snapshot and generated release notes GitHub provides
 
-The POC uses GitHub Actions artifacts to remain runnable without enterprise credentials. The production adapter must add:
-
-- Approved repository coordinates
-- Checksum and provenance
-- Retention policy
-- OIDC or approved secret authentication
-- Promotion of the same artifact instead of rebuilding
+Artifactory integration is intentionally outside this POC.
