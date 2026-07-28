@@ -1,0 +1,40 @@
+name: Golden Path Delivery
+
+on:
+  push:
+    branches:
+      - simplified-version-1
+      - main
+      - "develop-*"
+      - "feature-*"
+      - "prerelease-*"
+      - "release-*"
+      - "hotfix-*"
+      - "dependabot/**"
+  workflow_dispatch:
+    inputs:
+      branch_context:
+        description: Optional branch route to demonstrate
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: read
+  contents: write
+  deployments: write
+  pull-requests: read
+  code-quality: write
+
+concurrency:
+  group: delivery-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+jobs:
+  delivery:
+    if: github.event_name != 'push' || github.event.created == false
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-delivery.yml@simplified-version-1
+    with:
+      branch_context: ${{ inputs.branch_context }}
+      artifact_name: application-package
+      production_branch: simplified-version-1

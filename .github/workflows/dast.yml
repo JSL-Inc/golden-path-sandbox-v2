@@ -1,4 +1,4 @@
-name: DAST
+name: Optional DAST
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       blocking:
-        description: Fail the workflow on ZAP findings
+        description: Fail on ZAP findings
         required: false
         type: boolean
         default: false
@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   dast:
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-dast.yml@v2
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-dast.yml@simplified-version-1
     with:
       target_url: ${{ inputs.target_url }}
       rules_file: .zap/rules.tsv

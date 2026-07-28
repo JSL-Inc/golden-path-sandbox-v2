@@ -1,0 +1,19 @@
+name: Golden Path Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+  merge_group:
+
+permissions:
+  actions: read
+  contents: read
+  deployments: read
+  pull-requests: read
+  code-quality: write
+
+jobs:
+  required:
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/required-pr.yml@simplified-version-1
+    with:
+      production_branch: simplified-version-1
