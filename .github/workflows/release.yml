@@ -1,28 +1,13 @@
 name: Production Release
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-    inputs:
-      release_pr_number:
-        description: Merged release or hotfix PR number
-        required: true
-        type: string
-      artifact_run_id:
-        description: Successful Branch CI and Delivery run containing the release artifact
-        required: true
-        type: string
-      release_commit_sha:
-        description: Main commit that will be deployed, verified, tagged, and released
-        required: true
-        type: string
+  pull_request:
+    types: [closed]
+    branches: [main, simple-release]
 
 permissions:
   actions: read
   contents: write
-  id-token: write
   pull-requests: read
 
 concurrency:
@@ -30,161 +15,155 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  resolve-release:
-    name: Resolve immutable release artifact
-    if: github.event_name != 'push' || github.event.created == false
+  plan:
+    name: Calculate Release
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (startsWith(github.head_ref, 'release-') || startsWith(github.head_ref, 'hotfix-'))
     runs-on: ubuntu-latest
     outputs:
-      eligible: ${{ steps.context.outputs.eligible }}
-      release_pr_number: ${{ steps.context.outputs.release_pr_number }}
-      artifact_run_id: ${{ steps.context.outputs.artifact_run_id }}
-      release_commit_sha: ${{ steps.context.outputs.release_commit_sha }}
-      source_branch: ${{ steps.context.outputs.source_branch }}
+      version: ${{ steps.release.outputs.version }}
+      artifact_run_id: ${{ steps.artifact.outputs.run_id }}
     steps:
-      - name: Resolve merged release and successful artifact run
-        id: context
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Calculate version from the PR label
+        id: release
+        shell: bash
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          count=0
+          bump=""
+          for label in major minor patch; do
+            if [[ " $LABELS " == *" $label "* ]]; then
+              count=$((count + 1))
+              bump="$label"
+            fi
+          done
+
+          if [[ "$count" -ne 1 ]]; then
+            echo "::error::The merged PR must have exactly one release label."
+            exit 1
+          fi
+
+          existing="$(git tag --points-at "$RELEASE_SHA" --list 'v[0-9]*' | head -n 1)"
+          if [[ -n "$existing" ]]; then
+            version="$existing"
+          else
+            latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+            latest="${latest:-v0.0.0}"
+            IFS=. read -r major minor patch <<< "${latest#v}"
+
+            case "$bump" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+            esac
+            version="v${major}.${minor}.${patch}"
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release version: $version"
+
+      - name: Find the validated artifact
+        id: artifact
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_PR_NUMBER: ${{ inputs.release_pr_number }}
-          INPUT_ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
-          INPUT_RELEASE_COMMIT_SHA: ${{ inputs.release_commit_sha }}
+          SOURCE_BRANCH: ${{ github.head_ref }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            {
-              echo "eligible=true"
-              echo "release_pr_number=$INPUT_PR_NUMBER"
-              echo "artifact_run_id=$INPUT_ARTIFACT_RUN_ID"
-              echo "release_commit_sha=$INPUT_RELEASE_COMMIT_SHA"
-              echo "source_branch=manual-recovery"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
+          run_id="$(gh run list \
+            --workflow ci.yml \
+            --branch "$SOURCE_BRANCH" \
+            --commit "$SOURCE_SHA" \
+            --event push \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+
+          if [[ -z "$run_id" ]]; then
+            echo "::error::No successful CI artifact was found for $SOURCE_BRANCH at $SOURCE_SHA."
+            exit 1
           fi
 
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" > pull-requests.json
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
 
-          python - <<'PY'
-          import json
-          import os
+  release:
+    name: Deploy, Verify, and Release
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
 
-          with open("pull-requests.json", encoding="utf-8") as source:
-              pull_requests = json.load(source)
+      - name: Download the validated artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ needs.plan.outputs.artifact_run_id }}
+        run: |
+          gh run download "$RUN_ID" \
+            --name application-package \
+            --dir promoted-artifact
 
-          matches = [
-              item for item in pull_requests
-              if item.get("merged_at")
-              and item.get("base", {}).get("ref") == "main"
-              and item.get("head", {}).get("ref", "").startswith(
-                  ("release-", "hotfix-", "dependabot/")
-              )
-          ]
-          if len(matches) > 1:
-              raise SystemExit(
-                  "More than one merged release, hotfix, or dependency PR is associated "
-                  "with this main commit"
-              )
+      - name: Deploy and smoke test
+        shell: bash
+        env:
+          ARTIFACT_DIRECTORY: promoted-artifact
+        run: |
+          bash .github/golden-path/deploy.sh
+          bash .github/golden-path/smoke-test.sh
 
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              if not matches:
-                  output.write("eligible=false\n")
-                  output.write(f"release_commit_sha={os.environ['GITHUB_SHA']}\n")
-              else:
-                  pull_request = matches[0]
-                  output.write("eligible=true\n")
-                  output.write(
-                      f"release_pr_number={pull_request['number']}\n"
-                  )
-                  output.write(
-                      f"source_branch={pull_request['head']['ref']}\n"
-                  )
-                  output.write(
-                      f"source_sha={pull_request['head']['sha']}\n"
-                  )
-                  output.write(
-                      f"release_commit_sha={os.environ['GITHUB_SHA']}\n"
-                  )
-          PY
+      - name: Verify production
+        shell: bash
+        run: |
+          mkdir -p reports/production
+          bash .github/golden-path/production-verify.sh \
+            | tee reports/production/verification.txt
 
-          if [[ "$(grep '^eligible=' "$GITHUB_OUTPUT" | tail -1)" != "eligible=true" ]]; then
-            echo "This main update was not a release/hotfix PR; production release is skipped."
-            exit 0
+      - name: Package release evidence
+        shell: bash
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          tar -czf "release-${VERSION}.tgz" -C promoted-artifact .
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "$VERSION already exists; nothing to recreate."
+          else
+            gh release create "$VERSION" \
+              "release-${VERSION}.tgz" \
+              "reports/production/verification.txt" \
+              --target "$RELEASE_SHA" \
+              --title "$VERSION" \
+              --generate-notes
           fi
 
-          SOURCE_BRANCH="$(grep '^source_branch=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)"
-          SOURCE_SHA="$(grep '^source_sha=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)"
-          export SOURCE_BRANCH
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SOURCE_SHA}&event=push&status=success&per_page=25" \
-            > workflow-runs.json
-
-          python - <<'PY'
-          import json
-          import os
-
-          with open("workflow-runs.json", encoding="utf-8") as source:
-              runs = json.load(source).get("workflow_runs", [])
-          source_branch = os.environ["SOURCE_BRANCH"]
-          candidates = [
-              run for run in runs
-              if run.get("conclusion") == "success"
-              and run.get("head_branch") == source_branch
-          ]
-          if not candidates:
-              raise SystemExit(
-                  "No successful Branch CI and Delivery run was found for "
-                  f"{source_branch}. The release artifact cannot be promoted."
-              )
-          selected = max(candidates, key=lambda run: run["run_number"])
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"artifact_run_id={selected['id']}\n")
-          PY
-
-      - name: Resolution summary
+      - name: Summary
         shell: bash
         run: |
           {
-            echo "## Production release resolution"
-            echo "- Eligible: ${{ steps.context.outputs.eligible }}"
-            echo "- Source branch: ${{ steps.context.outputs.source_branch || 'not a release' }}"
-            echo "- Release PR: ${{ steps.context.outputs.release_pr_number || 'not applicable' }}"
-            echo "- Artifact run: ${{ steps.context.outputs.artifact_run_id || 'not applicable' }}"
-            echo "- Main commit: ${{ steps.context.outputs.release_commit_sha }}"
+            echo "## ${{ needs.plan.outputs.version }} released"
+            echo "- Classification: one PR label"
+            echo "- Artifact: promoted from CI run ${{ needs.plan.outputs.artifact_run_id }}"
+            echo "- Environment: prod"
+            echo "- GitHub Release: created after verification"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-prod:
-    name: Deploy prod
-    needs: resolve-release
-    if: needs.resolve-release.outputs.eligible == 'true'
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with:
-      environment_name: prod
-      artifact_name: application-package
-      artifact_run_id: ${{ needs.resolve-release.outputs.artifact_run_id }}
-      deploy_command: bash .github/golden-path/deploy.sh
-      smoke_test_command: bash .github/golden-path/smoke-test.sh
-    secrets: inherit
-
-  production-verification:
-    name: Production Verification
-    needs: [resolve-release, deploy-prod]
-    if: needs.deploy-prod.result == 'success'
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-production-verification.yml@v2
-    with:
-      release_version: pending-semantic-release
-      source_sha: ${{ needs.resolve-release.outputs.release_commit_sha }}
-      verification_command: bash .github/golden-path/production-verify.sh
-
-  semantic-release:
-    name: Semantic Release
-    needs: [resolve-release, production-verification]
-    if: needs.production-verification.result == 'success'
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-release.yml@v2
-    with:
-      release_pr_number: ${{ needs.resolve-release.outputs.release_pr_number }}
-      verification_run_id: ${{ github.run_id }}
-      release_commit_sha: ${{ needs.resolve-release.outputs.release_commit_sha }}
-      dry_run: false
