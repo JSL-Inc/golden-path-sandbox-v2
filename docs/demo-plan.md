@@ -3,10 +3,6 @@
 The normal path is automatic. Manual deployment, DAST, system, and performance
 workflows are recovery or optional demonstrations, not prerequisites.
 
-Dependabot is the deliberate exception to the COUNTRY branch names: its branch
-gets the same single CI/integration/regression run and defaults to a patch
-release if merged.
-
 ## Before the meeting
 
 1. Apply the rulesets in `governance/rulesets/`.
@@ -62,15 +58,19 @@ required approvals and merge.
 
 ### 4. Production and official release
 
-The merge starts one **Production Release** run.
+The merged PR event starts one **Production Release** run.
 
-- It resolves the merged release PR and the successful release-branch run.
+- The event provides the release branch, commit, and selected label directly.
 - It downloads that run's artifact; it does not rebuild on `main`.
 - It requests the protected `prod` Environment.
 - After approval, it deploys, smoke tests, and performs production verification.
-- It validates verification evidence against the merged main commit.
 - It calculates the next SemVer from the PR label.
 - It creates the `vMAJOR.MINOR.PATCH` tag and GitHub Release automatically.
+- It attaches the promoted artifact and verification evidence to the release.
+
+To exercise the workflow before merging this experiment into `main`, target
+`simple-release` instead. Temporarily allow that branch to deploy to `prod`;
+the workflow treats it as the POC production target.
 
 ### 5. Optional controls
 
