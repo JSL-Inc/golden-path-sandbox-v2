@@ -16,7 +16,7 @@ Runnable demonstration repository generated from `golden-path-template-v2`.
 - Optional CodeQL and dependency review, plus Dependabot and secret-protection guidance
 - OWASP ZAP DAST against non-production targets
 - Build-once artifact promotion through `eint1`–`eint6`, `eqa`, `epreprod`, and `prod`
-- Semantic versioning and verified release creation
+- One-label semantic versioning and verified GitHub Release creation
 - Production verification and rollback guidance
 - API-ready ruleset and environment specifications
 
@@ -42,8 +42,9 @@ bash .github/golden-path/lint.sh
 7. Feature validation automatically deploys to its named EINT environment.
 8. Release validation automatically deploys the same artifact to the single shared environment named by the branch: EQA or ePreProd.
 9. Add exactly one `major`, `minor`, or `patch` label to the PR entering `main`.
-10. The merge automatically promotes the release artifact to production, verifies it,
-    and creates the matching SemVer tag and GitHub Release.
+10. The merged PR event reads that one label, calculates the next SemVer tag,
+    promotes the CI artifact to production, verifies it, and creates the GitHub
+    Release. There is no `version.txt` and no reusable release caller.
 
 Normal pushes do not also start a second PR copy of core CI. PR events run only
 the policy and optional security workflows.
