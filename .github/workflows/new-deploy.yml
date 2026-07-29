@@ -9,6 +9,7 @@ on:
       - "hotfix-*"
       - main
       - new-deploy-stuff
+      - new-deploy-stuff-and-epreprod
 
 permissions:
   actions: read
@@ -31,6 +32,7 @@ jobs:
       regression: ${{ steps.route.outputs.regression }}
       smoke: ${{ steps.route.outputs.smoke }}
       dast: ${{ steps.route.outputs.dast }}
+      use_epreprod: ${{ steps.route.outputs.use_epreprod }}
     steps:
       - name: Determine branch behavior
         id: route
@@ -45,6 +47,7 @@ jobs:
           regression=false
           smoke=false
           dast=false
+          use_epreprod=false
 
           case "$BRANCH" in
             develop-*)
@@ -69,14 +72,15 @@ jobs:
               ;;
             release-epreprod-*|hotfix-epreprod-*)
               branch_type="${BRANCH%%-*}"
-              environment="epreprod"
+              environment="eqa"
               deploy=true
               integration=true
               regression=true
               smoke=true
               dast=true
+              use_epreprod=true
               ;;
-            main|new-deploy-stuff)
+            main|new-deploy-stuff|new-deploy-stuff-and-epreprod)
               branch_type="main"
               environment="prod"
               deploy=true
@@ -96,6 +100,7 @@ jobs:
             echo "regression=$regression"
             echo "smoke=$smoke"
             echo "dast=$dast"
+            echo "use_epreprod=$use_epreprod"
           } >> "$GITHUB_OUTPUT"
 
   build:
@@ -291,3 +296,160 @@ jobs:
           fi
 
           echo "QA Gate passed."
+
+  deploy_epreprod:
+    name: Deploy ePreProd
+    needs: [route, build, qa_gate]
+    if: needs.route.outputs.use_epreprod == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: epreprod
+    concurrency:
+      group: environment-epreprod
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download application artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: application-package
+          path: promoted-artifact
+
+      - name: Deploy application
+        run: bash scripts/deploy.sh epreprod promoted-artifact
+
+  preprod_integration:
+    name: ePreProd Integration Tests
+    needs: [route, deploy_epreprod]
+    if: needs.route.outputs.use_epreprod == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run integration tests
+        run: bash scripts/integration-test.sh epreprod
+
+      - name: Upload integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epreprod-integration-evidence
+          path: reports/integration/**
+          if-no-files-found: error
+
+  preprod_regression:
+    name: ePreProd Regression Tests
+    needs: [route, deploy_epreprod]
+    if: needs.route.outputs.use_epreprod == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run regression tests
+        run: bash scripts/regression-test.sh epreprod
+
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epreprod-regression-evidence
+          path: reports/regression/**
+          if-no-files-found: error
+
+  preprod_smoke:
+    name: ePreProd Smoke Tests
+    needs: [route, deploy_epreprod]
+    if: needs.route.outputs.use_epreprod == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download application artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: application-package
+          path: promoted-artifact
+
+      - name: Run smoke tests
+        run: bash scripts/smoke-test.sh epreprod promoted-artifact
+
+  preprod_dast:
+    name: ePreProd DAST
+    needs: [route, deploy_epreprod]
+    if: needs.route.outputs.use_epreprod == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the POC ZAP policy
+        shell: bash
+        run: |
+          test -s .zap/rules.tsv
+          awk -F '\t' 'NF != 3 { exit 1 }' .zap/rules.tsv
+          echo "DAST policy check passed for epreprod."
+
+  preprod_gate:
+    name: ePreProd Gate
+    needs:
+      - route
+      - deploy_epreprod
+      - preprod_integration
+      - preprod_regression
+      - preprod_smoke
+      - preprod_dast
+    if: always() && needs.route.outputs.use_epreprod == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate ePreProd gate
+        shell: bash
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy_epreprod.result }}
+          INTEGRATION_RESULT: ${{ needs.preprod_integration.result }}
+          REGRESSION_RESULT: ${{ needs.preprod_regression.result }}
+          SMOKE_RESULT: ${{ needs.preprod_smoke.result }}
+          DAST_RESULT: ${{ needs.preprod_dast.result }}
+        run: |
+          if [[ "$DEPLOY_RESULT" != "success" ||
+                "$INTEGRATION_RESULT" != "success" ||
+                "$REGRESSION_RESULT" != "success" ||
+                "$SMOKE_RESULT" != "success" ||
+                "$DAST_RESULT" != "success" ]]; then
+            echo "::error::ePreProd deployment or testing failed."
+            exit 1
+          fi
+
+          echo "ePreProd Gate passed."
+
+  release_readiness:
+    name: Release Readiness
+    needs: [route, qa_gate, preprod_gate]
+    if: >-
+      always() &&
+      (needs.route.outputs.branch_type == 'release' ||
+       needs.route.outputs.branch_type == 'hotfix')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate release readiness
+        shell: bash
+        env:
+          USE_EPREPROD: ${{ needs.route.outputs.use_epreprod }}
+          QA_GATE_RESULT: ${{ needs.qa_gate.result }}
+          PREPROD_GATE_RESULT: ${{ needs.preprod_gate.result }}
+        run: |
+          if [[ "$QA_GATE_RESULT" != "success" ]]; then
+            echo "::error::The EQA deployment and QA Gate must pass."
+            exit 1
+          fi
+
+          if [[ "$USE_EPREPROD" == "true" &&
+                "$PREPROD_GATE_RESULT" != "success" ]]; then
+            echo "::error::This release requires a successful ePreProd Gate."
+            exit 1
+          fi
+
+          if [[ "$USE_EPREPROD" == "true" ]]; then
+            echo "Release Readiness passed: EQA and ePreProd are complete."
+          else
+            echo "Release Readiness passed: EQA is complete; ePreProd is not used."
+          fi
