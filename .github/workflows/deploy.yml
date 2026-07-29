@@ -4,38 +4,44 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Recovery target; normal promotion is automatic
+        description: Recovery target
         required: true
         type: choice
         options: [eint1, eint2, eint3, eint4, eint5, eint6, eqa, epreprod, prod]
-      artifact_name:
-        required: true
-        type: string
-        default: application-package
       artifact_run_id:
-        description: Successful Branch CI and Delivery run ID that produced the immutable artifact
+        description: Successful Branch Delivery Pipeline run ID
         required: true
         type: string
-      environment_url:
-        required: false
-        type: string
-        default: ""
 
 permissions:
   actions: read
   contents: read
-  id-token: write
 
-# Recovery workflow only. Run it from a branch allowed by the selected GitHub
-# Environment. The normal EINT, EQA, ePreProd, and production path is automatic.
 jobs:
-  deploy-controlled:
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-deploy.yml@v2
-    with:
-      environment_name: ${{ inputs.environment }}
-      environment_url: ${{ inputs.environment_url }}
-      artifact_name: ${{ inputs.artifact_name }}
-      artifact_run_id: ${{ inputs.artifact_run_id }}
-      deploy_command: bash .github/golden-path/deploy.sh
-      smoke_test_command: bash .github/golden-path/smoke-test.sh
-    secrets: inherit
+  deploy:
+    name: Redeploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable scripts
+        run: chmod +x scripts/*.sh
+
+      - name: Download application artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.artifact_run_id }}
+        run: |
+          gh run download "$RUN_ID" \
+            --name application-package \
+            --dir promoted-artifact
+
+      - name: Deploy and smoke test
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          ./scripts/deploy.sh "$ENVIRONMENT" promoted-artifact
+          ./scripts/smoke-test.sh "$ENVIRONMENT" promoted-artifact
