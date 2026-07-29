@@ -3,7 +3,7 @@ name: Production Release
 on:
   pull_request:
     types: [closed]
-    branches: [main, new-deploy-stuff]
+    branches: [main, new-deploy-stuff, new-deploy-stuff-and-epreprod]
 
 permissions:
   actions: read
