@@ -1,52 +1,70 @@
 # New deploy POC
 
-This branch demonstrates the repository-local version of the Golden Path. It
-uses readable workflow YAML and small scripts rather than central reusable
-workflow callers.
+This branch keeps the repository structure and delivery order used by the
+architecture diagram. The scripts intentionally return simple passing POC
+results and can later be replaced with application-specific commands.
 
-## Files
+## Workflow responsibilities
 
-- `new-deploy.yml` runs CI, creates the artifact once, and deploys it to the
-  non-production environment selected by the branch name.
-- `pr-policy.yml` enforces `develop → feature → release → main`.
-- `pr-semver.yml` requires one `major`, `minor`, or `patch` label before a
-  release or hotfix can enter the production branch.
-- `feature-id-tag.yml` creates the `f###` traceability tag after a feature is
-  merged into a release branch.
-- `release.yml` promotes the validated release-branch artifact to `prod`,
-  verifies it, and creates the SemVer tag and GitHub Release.
-- `security.yml` runs local CodeQL and dependency review jobs.
-- `dast.yml` provides an optional manual OWASP ZAP scan against a
-  non-production URL.
+| File | Responsibility |
+|---|---|
+| `branch-validation.yml` | Validates the approved branch naming conventions |
+| `code-coverage-v2.yml` | Runs unit tests and enforces the 80% coverage baseline on pull requests |
+| `feature-tagging.yml` | Creates the `f###` traceability tag after a feature enters a release branch |
+| `new-deploy.yml` | Runs the architecture-ordered build, deployments, tests, and gates |
+| `owasp-zap-scan.yml` | Provides an on-demand full ZAP scan for a deployed non-production URL |
+| `pr-flow.yml` | Enforces `develop → feature → release → main` |
+| `pr-semver-check.yml` | Requires exactly one `major`, `minor`, or `patch` label before production |
+| `release.yml` | Waits for successful production delivery and creates the SemVer tag and GitHub Release |
+
+## Architecture order
+
+1. Build and quality checks
+   - Build
+   - Unit tests
+   - Cobertura coverage
+   - Code quality
+   - GitHub code-scanning result required by the ruleset
+2. Deploy to the environment selected by the branch.
+3. Run Integration and Regression tests for feature, release, and hotfix branches.
+4. Evaluate the INT Gate for feature branches.
+5. Run Smoke and DAST checks for EQA or ePreProd.
+6. Evaluate the QA Gate for release and hotfix branches.
+7. A merge to `main` runs the production deployment and smoke test.
+8. `release.yml` waits for that successful production run and then creates the release.
+
+EQA and ePreProd are alternatives selected by the release or hotfix branch
+name; the POC does not force every release through both.
 
 ## Branch behavior
 
-| Branch | Automated behavior |
-|---|---|
-| `develop-*` | Unit tests, 80% coverage, lint, build, artifact |
-| `feature-eint1-f###` through `feature-eint6-f###` | CI, deploy to matching EINT, smoke and integration tests |
-| `release-eqa-*` / `hotfix-eqa-*` | CI, deploy to EQA, smoke, integration, regression |
-| `release-epreprod-*` / `hotfix-epreprod-*` | CI, deploy to ePreProd, smoke, integration, regression |
-| `main` | Production is owned only by `release.yml` after a release/hotfix PR merge |
+| Branch | Environment | Tests and gate |
+|---|---|---|
+| `develop-*` | None | Build-time quality checks |
+| `feature-eint1-f###` through `feature-eint6-f###` | Matching EINT | Integration, Regression, INT Gate |
+| `release-eqa-*` / `hotfix-eqa-*` | EQA | Integration, Regression, Smoke, DAST, QA Gate |
+| `release-epreprod-*` / `hotfix-epreprod-*` | ePreProd | Integration, Regression, Smoke, DAST, QA Gate |
+| `main` | Prod | Deployment and Smoke; release follows success |
 
-The test deployment scripts intentionally print passing POC results. They are
-adapter points for application-specific deployment and test commands later.
+`new-deploy-stuff` temporarily behaves like `main` so the complete flow can be
+tested without changing `main`. Remove that branch from the three workflow
+branch lists when copying these files to the work repository.
 
-## Required repository settings
+## Required GitHub settings
 
-Create `eint1`–`eint6`, `eqa`, `epreprod`, and `prod` Environments. Protect the
-shared and production Environments with the appropriate reviewers and prevent
-self-review for production.
+Create `eint1`–`eint6`, `eqa`, `epreprod`, and `prod` environments. Configure
+the required reviewers on shared and production environments and prevent
+self-review where appropriate. The environment approval provides the
+PO/business approval point for this POC; a failed test is corrected and rerun.
 
-Use these stable required status checks:
+Use these required status checks:
 
-- `Pull Request Policy / Branch Flow`
-- `Branch Delivery Pipeline / Promotion Gate`
-- For `main` only: `PR SemVer Label Check / Release Label`
+- `Branch Validation / Branch Name`
+- `PR Flow / Branch Flow`
+- `Code Coverage / Coverage 80%`
+- For `main`: `PR SemVer Check / Release Label`
 
-Do not configure `main` to require an EQA or production deployment directly.
-The release branch's Promotion Gate proves the selected EQA or ePreProd stage,
-and production starts only after the release/hotfix PR is merged.
-
-Secret scanning, push protection, Dependabot, required reviewers, and rulesets
-are GitHub repository or organization settings rather than workflow code.
+Use GitHub ruleset settings for required pull requests, approvals, code
+scanning results, resolved conversations, and blocked direct pushes. Enable
+secret scanning, push protection, and Dependabot in repository or organization
+settings.

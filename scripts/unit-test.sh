@@ -2,8 +2,8 @@
 set -euo pipefail
 
 mkdir -p reports/junit reports/coverage
-python -m pytest tests \
+python -m pytest testing \
   --junitxml=reports/junit/results.xml \
-  --cov=calculator \
+  --cov=testing.calculator \
   --cov-fail-under=80 \
   --cov-report=xml:reports/coverage/cobertura.xml

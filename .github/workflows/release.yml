@@ -15,16 +15,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan:
-    name: Calculate Release
+  release:
+    name: Create Release
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      (startsWith(github.head_ref, 'release-') || startsWith(github.head_ref, 'hotfix-'))
+      (startsWith(github.head_ref, 'release-') ||
+       startsWith(github.head_ref, 'hotfix-'))
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      artifact_run_id: ${{ steps.artifact.outputs.run_id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,84 +71,59 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Release version: $version"
 
-      - name: Find validated release artifact
-        id: artifact
+      - name: Wait for the production pipeline
+        id: pipeline
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_BRANCH: ${{ github.head_ref }}
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+          TARGET_BRANCH: ${{ github.base_ref }}
+          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
-          run_id="$(gh run list \
-            --workflow new-deploy.yml \
-            --branch "$SOURCE_BRANCH" \
-            --commit "$SOURCE_SHA" \
-            --event push \
-            --status success \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId')"
+          for attempt in {1..20}; do
+            run_id="$(gh run list \
+              --workflow new-deploy.yml \
+              --branch "$TARGET_BRANCH" \
+              --commit "$RELEASE_SHA" \
+              --event push \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId')"
 
-          if [[ -z "$run_id" ]]; then
-            echo "::error::No successful release artifact was found for $SOURCE_BRANCH at $SOURCE_SHA."
-            exit 1
-          fi
+            if [[ -n "$run_id" ]]; then
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              echo "Production pipeline run: $run_id"
+              exit 0
+            fi
 
-          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+            echo "Waiting for the production deployment and smoke test..."
+            sleep 15
+          done
 
-  release:
-    name: Deploy, Verify, and Release
-    needs: plan
-    runs-on: ubuntu-latest
-    environment: prod
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
+          echo "::error::The production pipeline did not complete successfully."
+          exit 1
 
-      - name: Enable scripts
-        run: chmod +x scripts/*.sh
-
-      - name: Download validated artifact
+      - name: Download the production artifact
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ needs.plan.outputs.artifact_run_id }}
+          RUN_ID: ${{ steps.pipeline.outputs.run_id }}
         run: |
           gh run download "$RUN_ID" \
             --name application-package \
-            --dir promoted-artifact
+            --dir release-artifact
 
-      - name: Deploy and smoke test
-        run: |
-          ./scripts/deploy.sh prod promoted-artifact
-          ./scripts/smoke-test.sh prod promoted-artifact
-
-      - name: Verify production
-        run: |
-          mkdir -p reports/production
-          ./scripts/production-verify.sh \
-            | tee reports/production/verification.txt
-
-      - name: Upload production evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-verification
-          path: reports/production/verification.txt
-          if-no-files-found: error
-
-      - name: Package release artifact
+      - name: Package release evidence
         shell: bash
         env:
-          VERSION: ${{ needs.plan.outputs.version }}
-        run: tar -czf "release-${VERSION}.tgz" -C promoted-artifact .
+          VERSION: ${{ steps.version.outputs.version }}
+        run: tar -czf "release-${VERSION}.tgz" -C release-artifact .
 
-      - name: Create GitHub Release
+      - name: Create GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.plan.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
           RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           if gh release view "$VERSION" >/dev/null 2>&1; then
@@ -158,7 +131,6 @@ jobs:
           else
             gh release create "$VERSION" \
               "release-${VERSION}.tgz" \
-              "reports/production/verification.txt" \
               --target "$RELEASE_SHA" \
               --title "$VERSION" \
               --generate-notes
@@ -167,9 +139,9 @@ jobs:
       - name: Publish summary
         run: |
           {
-            echo "## ${{ needs.plan.outputs.version }} released"
-            echo "- Artifact run: ${{ needs.plan.outputs.artifact_run_id }}"
-            echo "- Environment: prod"
-            echo "- Verification evidence retained"
-            echo "- GitHub Release created"
+            echo "## ${{ steps.version.outputs.version }} released"
+            echo "- SemVer source: one PR label"
+            echo "- Production pipeline: ${{ steps.pipeline.outputs.run_id }}"
+            echo "- Production was not redeployed by this workflow"
+            echo "- GitHub release and tag created"
           } >> "$GITHUB_STEP_SUMMARY"

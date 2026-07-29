@@ -1,4 +1,4 @@
-name: Pull Request Policy
+name: PR Flow
 
 on:
   pull_request:

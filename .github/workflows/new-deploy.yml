@@ -7,8 +7,11 @@ on:
       - "feature-*"
       - "release-*"
       - "hotfix-*"
+      - main
+      - new-deploy-stuff
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -24,6 +27,10 @@ jobs:
       branch_type: ${{ steps.route.outputs.branch_type }}
       environment: ${{ steps.route.outputs.environment }}
       deploy: ${{ steps.route.outputs.deploy }}
+      integration: ${{ steps.route.outputs.integration }}
+      regression: ${{ steps.route.outputs.regression }}
+      smoke: ${{ steps.route.outputs.smoke }}
+      dast: ${{ steps.route.outputs.dast }}
     steps:
       - name: Determine branch behavior
         id: route
@@ -34,6 +41,10 @@ jobs:
           branch_type=""
           environment=""
           deploy=false
+          integration=false
+          regression=false
+          smoke=false
+          dast=false
 
           case "$BRANCH" in
             develop-*)
@@ -44,16 +55,32 @@ jobs:
               environment="${BRANCH#feature-}"
               environment="${environment%%-*}"
               deploy=true
+              integration=true
+              regression=true
               ;;
             release-eqa-*|hotfix-eqa-*)
               branch_type="${BRANCH%%-*}"
               environment="eqa"
               deploy=true
+              integration=true
+              regression=true
+              smoke=true
+              dast=true
               ;;
             release-epreprod-*|hotfix-epreprod-*)
               branch_type="${BRANCH%%-*}"
               environment="epreprod"
               deploy=true
+              integration=true
+              regression=true
+              smoke=true
+              dast=true
+              ;;
+            main|new-deploy-stuff)
+              branch_type="main"
+              environment="prod"
+              deploy=true
+              smoke=true
               ;;
             *)
               echo "::error::Unsupported branch name: $BRANCH"
@@ -65,35 +92,43 @@ jobs:
             echo "branch_type=$branch_type"
             echo "environment=$environment"
             echo "deploy=$deploy"
+            echo "integration=$integration"
+            echo "regression=$regression"
+            echo "smoke=$smoke"
+            echo "dast=$dast"
           } >> "$GITHUB_OUTPUT"
 
-  ci:
-    name: CI Quality Gate
+  build:
+    name: Build and Quality Checks
     needs: route
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enable scripts
-        run: chmod +x scripts/*.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
 
-      - name: Prepare
-        run: ./scripts/prepare.sh
-
-      - name: Unit tests and coverage
-        run: ./scripts/unit-test.sh
-
-      - name: Code quality
-        run: ./scripts/lint.sh
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
 
       - name: Build
-        run: ./scripts/build.sh
+        run: bash scripts/build.sh
 
-      - name: Upload test evidence
+      - name: Unit tests and code coverage
+        run: bash scripts/unit-test.sh
+
+      - name: Code quality
+        run: |
+          ruff check testing
+          ruff format --check testing
+
+      - name: Upload unit-test and coverage evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-evidence
+          name: build-evidence
           path: |
             reports/junit/results.xml
             reports/coverage/cobertura.xml
@@ -106,9 +141,9 @@ jobs:
           path: dist/**
           if-no-files-found: error
 
-  validate:
-    name: Deploy and Validate ${{ needs.route.outputs.environment }}
-    needs: [route, ci]
+  deploy:
+    name: Deploy
+    needs: [route, build]
     if: needs.route.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     environment:
@@ -119,8 +154,66 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enable scripts
-        run: chmod +x scripts/*.sh
+      - name: Download application artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: application-package
+          path: promoted-artifact
+
+      - name: Deploy application
+        env:
+          ENVIRONMENT: ${{ needs.route.outputs.environment }}
+        run: bash scripts/deploy.sh "$ENVIRONMENT" promoted-artifact
+
+  integration:
+    name: Integration Tests
+    needs: [route, deploy]
+    if: needs.route.outputs.integration == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run integration tests
+        env:
+          ENVIRONMENT: ${{ needs.route.outputs.environment }}
+        run: bash scripts/integration-test.sh "$ENVIRONMENT"
+
+      - name: Upload integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-evidence
+          path: reports/integration/**
+          if-no-files-found: error
+
+  regression:
+    name: Regression Tests
+    needs: [route, deploy]
+    if: needs.route.outputs.regression == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run regression tests
+        env:
+          ENVIRONMENT: ${{ needs.route.outputs.environment }}
+        run: bash scripts/regression-test.sh "$ENVIRONMENT"
+
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-evidence
+          path: reports/regression/**
+          if-no-files-found: error
+
+  smoke:
+    name: Smoke Tests
+    needs: [route, deploy]
+    if: needs.route.outputs.smoke == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Download application artifact
         uses: actions/download-artifact@v4
@@ -128,56 +221,73 @@ jobs:
           name: application-package
           path: promoted-artifact
 
-      - name: Deploy
+      - name: Run smoke tests
         env:
           ENVIRONMENT: ${{ needs.route.outputs.environment }}
-        run: ./scripts/deploy.sh "$ENVIRONMENT" promoted-artifact
+        run: bash scripts/smoke-test.sh "$ENVIRONMENT" promoted-artifact
 
-      - name: Smoke test
-        env:
-          ENVIRONMENT: ${{ needs.route.outputs.environment }}
-        run: ./scripts/smoke-test.sh "$ENVIRONMENT" promoted-artifact
-
-      - name: Integration tests
-        env:
-          ENVIRONMENT: ${{ needs.route.outputs.environment }}
-        run: ./scripts/integration-test.sh "$ENVIRONMENT"
-
-      - name: Regression tests
-        if: needs.route.outputs.branch_type == 'release' || needs.route.outputs.branch_type == 'hotfix'
-        env:
-          ENVIRONMENT: ${{ needs.route.outputs.environment }}
-        run: ./scripts/regression-test.sh "$ENVIRONMENT"
-
-      - name: Upload validation evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ needs.route.outputs.environment }}-validation-evidence
-          path: reports/**
-          if-no-files-found: error
-
-  promotion_gate:
-    name: Promotion Gate
-    needs: [route, ci, validate]
-    if: always() && needs.route.result != 'skipped'
+  dast:
+    name: DAST
+    needs: [route, deploy]
+    if: needs.route.outputs.dast == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Evaluate pipeline
+      - uses: actions/checkout@v4
+
+      - name: Validate the POC ZAP policy
+        shell: bash
+        run: |
+          test -s .zap/rules.tsv
+          awk -F '\t' 'NF != 3 { exit 1 }' .zap/rules.tsv
+          echo "DAST policy check passed for ${{ needs.route.outputs.environment }}."
+
+  integration_gate:
+    name: INT Gate
+    needs: [route, deploy, integration, regression]
+    if: always() && needs.route.outputs.branch_type == 'feature'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate INT gate
         shell: bash
         env:
-          DEPLOY_REQUIRED: ${{ needs.route.outputs.deploy }}
-          CI_RESULT: ${{ needs.ci.result }}
-          VALIDATION_RESULT: ${{ needs.validate.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          REGRESSION_RESULT: ${{ needs.regression.result }}
         run: |
-          if [[ "$CI_RESULT" != "success" ]]; then
-            echo "::error::CI failed."
+          if [[ "$DEPLOY_RESULT" != "success" ||
+                "$INTEGRATION_RESULT" != "success" ||
+                "$REGRESSION_RESULT" != "success" ]]; then
+            echo "::error::INT deployment or testing failed."
             exit 1
           fi
 
-          if [[ "$DEPLOY_REQUIRED" == "true" && "$VALIDATION_RESULT" != "success" ]]; then
-            echo "::error::Deployment or stage validation failed."
+          echo "INT Gate passed."
+
+  qa_gate:
+    name: QA Gate
+    needs: [route, deploy, integration, regression, smoke, dast]
+    if: >-
+      always() &&
+      (needs.route.outputs.branch_type == 'release' ||
+       needs.route.outputs.branch_type == 'hotfix')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate QA gate
+        shell: bash
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          REGRESSION_RESULT: ${{ needs.regression.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+          DAST_RESULT: ${{ needs.dast.result }}
+        run: |
+          if [[ "$DEPLOY_RESULT" != "success" ||
+                "$INTEGRATION_RESULT" != "success" ||
+                "$REGRESSION_RESULT" != "success" ||
+                "$SMOKE_RESULT" != "success" ||
+                "$DAST_RESULT" != "success" ]]; then
+            echo "::error::QA deployment or testing failed."
             exit 1
           fi
 
-          echo "Promotion gate passed."
+          echo "QA Gate passed."
