@@ -26,9 +26,9 @@ Use this repository to create failing and passing pull requests without changing
 
 ```bash
 python -m pip install -r requirements.txt
-bash .github/golden-path/unit-test.sh
-bash .github/golden-path/build.sh
-bash .github/golden-path/lint.sh
+bash scripts/unit-test.sh
+bash scripts/build.sh
+bash scripts/lint.sh
 ```
 
 ## Automatic demonstration flow
