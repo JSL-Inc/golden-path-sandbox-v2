@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       blocking:
-        description: Fail the workflow on ZAP findings
+        description: Fail on ZAP findings
         required: false
         type: boolean
         default: false
@@ -17,9 +17,14 @@ permissions:
   contents: read
 
 jobs:
-  dast:
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-dast.yml@v2
-    with:
-      target_url: ${{ inputs.target_url }}
-      rules_file: .zap/rules.tsv
-      blocking: ${{ inputs.blocking }}
+  zap:
+    name: OWASP ZAP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan non-production target
+        continue-on-error: ${{ inputs.blocking == false }}
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: ${{ inputs.target_url }}
+          rules_file_name: .zap/rules.tsv
