@@ -2,6 +2,10 @@
 
 Runnable demonstration repository generated from `golden-path-template-v2`.
 
+The `new-deploy-stuff-template` branch demonstrates the organization-ready
+template and is temporarily treated like `main`. See
+[the organization template demo](docs/organization-template-demo.md).
+
 ## Included controls
 
 - COUNTRY branch flow: `main → release → feature → develop`
@@ -40,7 +44,8 @@ ruff check testing
 5. Promote with PRs through `develop → feature → release → main`.
 6. Merging `feature-eint1-f26` into the release branch automatically tags that release-branch merge commit as `f26`.
 7. Feature validation automatically deploys to its named EINT environment.
-8. Release validation automatically deploys the same artifact to the single shared environment named by the branch: EQA or ePreProd.
+8. Release validation always passes EQA. Branches named `release-epreprod-*`
+   then promote the same artifact through ePreProd before production.
 9. Add exactly one `major`, `minor`, or `patch` label to the PR entering `main`.
 10. The merge runs the production deployment and smoke test.
 11. After that production pipeline succeeds, the matching SemVer tag and GitHub

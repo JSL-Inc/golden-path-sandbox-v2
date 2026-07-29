@@ -2,7 +2,7 @@ name: PR SemVer Check
 
 on:
   pull_request:
-    branches: [main, new-deploy-stuff, new-deploy-stuff-and-epreprod]
+    branches: [main, new-deploy-stuff, new-deploy-stuff-and-epreprod, new-deploy-stuff-template]
     types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
 
 permissions:

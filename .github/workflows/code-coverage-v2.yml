@@ -25,6 +25,11 @@ jobs:
       - name: Run unit tests and enforce coverage
         run: bash scripts/unit-test.sh
 
+      - name: Enforce code quality
+        run: |
+          ruff check testing
+          ruff format --check testing
+
       - name: Upload JUnit and Cobertura reports
         if: always()
         uses: actions/upload-artifact@v4

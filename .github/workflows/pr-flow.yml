@@ -28,7 +28,9 @@ jobs:
             release-eqa-*:new-deploy-stuff | release-epreprod-*:new-deploy-stuff | \
             hotfix-eqa-*:new-deploy-stuff | hotfix-epreprod-*:new-deploy-stuff | \
             release-eqa-*:new-deploy-stuff-and-epreprod | release-epreprod-*:new-deploy-stuff-and-epreprod | \
-            hotfix-eqa-*:new-deploy-stuff-and-epreprod | hotfix-epreprod-*:new-deploy-stuff-and-epreprod)
+            hotfix-eqa-*:new-deploy-stuff-and-epreprod | hotfix-epreprod-*:new-deploy-stuff-and-epreprod | \
+            release-eqa-*:new-deploy-stuff-template | release-epreprod-*:new-deploy-stuff-template | \
+            hotfix-eqa-*:new-deploy-stuff-template | hotfix-epreprod-*:new-deploy-stuff-template)
               echo "Allowed promotion: $SOURCE -> $TARGET"
               ;;
             *)

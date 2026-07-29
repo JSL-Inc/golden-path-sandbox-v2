@@ -10,6 +10,7 @@ on:
       - main
       - new-deploy-stuff
       - new-deploy-stuff-and-epreprod
+      - new-deploy-stuff-template
 
 permissions:
   actions: read
@@ -80,7 +81,7 @@ jobs:
               dast=true
               use_epreprod=true
               ;;
-            main|new-deploy-stuff|new-deploy-stuff-and-epreprod)
+            main|new-deploy-stuff|new-deploy-stuff-and-epreprod|new-deploy-stuff-template)
               branch_type="main"
               environment="prod"
               deploy=true

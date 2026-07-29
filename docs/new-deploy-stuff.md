@@ -28,13 +28,15 @@ results and can later be replaced with application-specific commands.
 2. Deploy to the environment selected by the branch.
 3. Run Integration and Regression tests for feature, release, and hotfix branches.
 4. Evaluate the INT Gate for feature branches.
-5. Run Smoke and DAST checks for EQA or ePreProd.
+5. Run Smoke and DAST policy checks in EQA.
 6. Evaluate the QA Gate for release and hotfix branches.
-7. A merge to `main` runs the production deployment and smoke test.
-8. `release.yml` waits for that successful production run and then creates the release.
+7. For `*-epreprod-*` branches, promote the same artifact to ePreProd, repeat
+   the applicable tests, and evaluate the ePreProd Gate.
+8. A merge to `main` runs the production deployment and smoke test.
+9. `release.yml` waits for that successful production run and then creates the release.
 
-EQA and ePreProd are alternatives selected by the release or hotfix branch
-name; the POC does not force every release through both.
+Every release uses EQA. The release or hotfix branch name decides whether
+ePreProd is also required.
 
 ## Branch behavior
 
@@ -43,7 +45,7 @@ name; the POC does not force every release through both.
 | `develop-*` | None | Build-time quality checks |
 | `feature-eint1-f###` through `feature-eint6-f###` | Matching EINT | Integration, Regression, INT Gate |
 | `release-eqa-*` / `hotfix-eqa-*` | EQA | Integration, Regression, Smoke, DAST, QA Gate |
-| `release-epreprod-*` / `hotfix-epreprod-*` | ePreProd | Integration, Regression, Smoke, DAST, QA Gate |
+| `release-epreprod-*` / `hotfix-epreprod-*` | EQA, then ePreProd | Integration, Regression, Smoke, DAST policy, QA Gate, ePreProd Gate |
 | `main` | Prod | Deployment and Smoke; release follows success |
 
 `new-deploy-stuff` temporarily behaves like `main` so the complete flow can be
