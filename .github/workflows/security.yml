@@ -12,9 +12,20 @@ permissions:
   pull-requests: read
 
 jobs:
-  security:
-    name: Security Scanning
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-security.yml@v2
-    with:
-      languages: '["python"]'
-      dependency_review_enabled: ${{ vars.DEPENDENCY_REVIEW_ENABLED == 'true' }}
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v3
+
+  dependency_review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
