@@ -38,10 +38,12 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
           TARGET_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
+          pull_requests="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}/pulls"
+          )"
+
           pr="$(
-            gh api \
-              "/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}/pulls" \
-              --jq \
+            jq -c \
               --arg base "$TARGET_BRANCH" \
               '[
                 .[]
@@ -54,7 +56,7 @@ jobs:
                       (.head.ref | startswith("hotfix-"))
                     )
                   )
-              ][0]'
+              ][0]' <<< "$pull_requests"
           )"
 
           if [[ -z "$pr" || "$pr" == "null" ]]; then
