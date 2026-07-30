@@ -1,0 +1,10 @@
+Golden Path POC Demo
+
+This non-application file is intentionally changed to demonstrate the governed flow:
+develop → feature → release → main.
+
+Expected result after merging this PR:
+- the feature branch runs the delivery workflow,
+- deploys application-package to eint1,
+- runs integration and regression tests,
+- and reports the INT Gate.
