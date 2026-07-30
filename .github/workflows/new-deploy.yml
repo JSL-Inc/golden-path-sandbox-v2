@@ -17,4 +17,4 @@ permissions:
 jobs:
   delivery:
     name: Delivery
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/new-deploy.yml@main
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/new-deploy.yml@undoing-release-mistake
