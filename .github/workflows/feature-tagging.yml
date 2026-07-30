@@ -13,4 +13,8 @@ permissions:
 jobs:
   feature-traceability:
     name: Feature Traceability
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.head_ref, 'feature-eint')
     uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/feature-tagging.yml@main
