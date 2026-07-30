@@ -40,11 +40,10 @@ ruff check testing
 5. Promote with PRs through `develop → feature → release → main`.
 6. Merging `feature-eint1-f26` into the release branch automatically tags that release-branch merge commit as `f26`.
 7. Feature validation automatically deploys to its named EINT environment.
-8. Release validation automatically deploys the same artifact to the single shared environment named by the branch: EQA or ePreProd.
+8. A `release-eqa-*` branch deploys to EQA. A `release-epreprod-*` branch deploys to EQA first and then promotes the same artifact through ePreProd.
 9. Add exactly one `major`, `minor`, or `patch` label to the PR entering `main`.
-10. The merge runs the production deployment and smoke test.
-11. After that production pipeline succeeds, the matching SemVer tag and GitHub
-    Release are created without deploying production a second time.
+10. The merge promotes the successful release-branch artifact to production; it does not rebuild it.
+11. After production deployment, smoke testing, and verification succeed, the matching SemVer tag and GitHub Release are created automatically.
 
 Normal pushes do not also start a second PR copy of core CI. PR events run only
 the policy and optional security workflows.
