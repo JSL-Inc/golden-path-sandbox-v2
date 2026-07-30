@@ -1,9 +1,12 @@
 name: Production Release
 
 on:
-  pull_request:
-    types: [closed]
-    branches: [main, new-deploy-stuff, new-deploy-stuff-and-epreprod]
+  workflow_run:
+    workflows: ["Branch Delivery Pipeline"]
+    types: [completed]
+    branches:
+      - main
+      - new-deploy-stuff-and-epreprod
 
 permissions:
   actions: read
@@ -11,104 +14,126 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: production-release-${{ github.repository }}
+  group: production-release-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
   release:
-    name: Create Release
-    if: >-
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      (startsWith(github.head_ref, 'release-') ||
-       startsWith(github.head_ref, 'hotfix-'))
+    name: Create Production Release
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out deployed commit
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Calculate version from PR label
-        id: version
+      - name: Calculate release version
+        id: release
         shell: bash
         env:
-          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
-          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          TARGET_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
+          pr="$(
+            gh api \
+              "/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}/pulls" \
+              --jq \
+              --arg base "$TARGET_BRANCH" \
+              '[
+                .[]
+                | select(
+                    .merged_at != null
+                    and .base.ref == $base
+                    and (
+                      (.head.ref | startswith("release-"))
+                      or
+                      (.head.ref | startswith("hotfix-"))
+                    )
+                  )
+              ][0]'
+          )"
+
+          if [[ -z "$pr" || "$pr" == "null" ]]; then
+            echo "::error::No merged release or hotfix PR was found."
+            exit 1
+          fi
+
+          pr_number="$(jq -r '.number' <<< "$pr")"
+          pr_title="$(jq -r '.title' <<< "$pr")"
+          pr_url="$(jq -r '.html_url' <<< "$pr")"
+          source_branch="$(jq -r '.head.ref' <<< "$pr")"
+          labels="$(jq -r '[.labels[].name] | join(" ")' <<< "$pr")"
+
           count=0
           bump=""
 
           for label in major minor patch; do
-            if [[ " $LABELS " == *" $label "* ]]; then
+            if [[ " $labels " == *" $label "* ]]; then
               count=$((count + 1))
               bump="$label"
             fi
           done
 
           if [[ "$count" -ne 1 ]]; then
-            echo "::error::The merged PR must have exactly one release label."
+            echo "::error::PR #${pr_number} must have exactly one of: major, minor, patch."
             exit 1
           fi
 
-          existing="$(git tag --points-at "$RELEASE_SHA" --list 'v[0-9]*' | head -n 1)"
+          existing="$(
+            git tag --points-at "$RELEASE_SHA" \
+              --list 'v[0-9]*.[0-9]*.[0-9]*' |
+              head -n 1
+          )"
+
           if [[ -n "$existing" ]]; then
             version="$existing"
           else
-            latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+            latest="$(
+              git tag \
+                --list 'v[0-9]*.[0-9]*.[0-9]*' \
+                --sort=-v:refname |
+                head -n 1
+            )"
+
             latest="${latest:-v0.0.0}"
             IFS=. read -r major minor patch <<< "${latest#v}"
 
             case "$bump" in
-              major) major=$((major + 1)); minor=0; patch=0 ;;
-              minor) minor=$((minor + 1)); patch=0 ;;
-              patch) patch=$((patch + 1)) ;;
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch)
+                patch=$((patch + 1))
+                ;;
             esac
 
             version="v${major}.${minor}.${patch}"
           fi
 
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "bump=$bump" >> "$GITHUB_OUTPUT"
-          echo "Release version: $version"
+          {
+            echo "version=$version"
+            echo "bump=$bump"
+            echo "pr_number=$pr_number"
+            echo "pr_title=$pr_title"
+            echo "pr_url=$pr_url"
+            echo "source_branch=$source_branch"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Wait for the production pipeline
-        id: pipeline
+      - name: Download validated build artifact
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_BRANCH: ${{ github.base_ref }}
-          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        run: |
-          for attempt in {1..20}; do
-            run_id="$(gh run list \
-              --workflow new-deploy.yml \
-              --branch "$TARGET_BRANCH" \
-              --commit "$RELEASE_SHA" \
-              --event push \
-              --status success \
-              --limit 1 \
-              --json databaseId \
-              --jq '.[0].databaseId')"
-
-            if [[ -n "$run_id" ]]; then
-              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-              echo "Production pipeline run: $run_id"
-              exit 0
-            fi
-
-            echo "Waiting for the production deployment and smoke test..."
-            sleep 15
-          done
-
-          echo "::error::The production pipeline did not complete successfully."
-          exit 1
-
-      - name: Download the production artifact
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ steps.pipeline.outputs.run_id }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           gh run download "$RUN_ID" \
             --name application-package \
@@ -117,113 +142,64 @@ jobs:
       - name: Package release artifact
         shell: bash
         env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: tar -czf "application-package-${VERSION}.tgz" -C release-artifact .
-
-      - name: Create release evidence
-        shell: bash
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          BUMP: ${{ steps.version.outputs.bump }}
-          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
-          RELEASE_PR: ${{ github.event.pull_request.number }}
-          RELEASE_PR_TITLE: ${{ github.event.pull_request.title }}
-          PIPELINE_RUN_ID: ${{ steps.pipeline.outputs.run_id }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          pipeline_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${PIPELINE_RUN_ID}"
-          pr_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${RELEASE_PR}"
-
-          jq -n \
-            --arg version "$VERSION" \
-            --arg classification "$BUMP" \
-            --arg environment "prod" \
-            --arg sourceBranch "$SOURCE_BRANCH" \
-            --arg releaseCommit "$RELEASE_SHA" \
-            --arg releasePullRequest "$pr_url" \
-            --arg releasePullRequestTitle "$RELEASE_PR_TITLE" \
-            --arg artifact "application-package-${VERSION}.tgz" \
-            --arg productionPipeline "$pipeline_url" \
-            --arg productionDeployment "passed" \
-            --arg productionVerification "passed" \
-            '{
-              version: $version,
-              classification: $classification,
-              environment: $environment,
-              sourceBranch: $sourceBranch,
-              releaseCommit: $releaseCommit,
-              releasePullRequest: $releasePullRequest,
-              releasePullRequestTitle: $releasePullRequestTitle,
-              artifact: $artifact,
-              productionPipeline: $productionPipeline,
-              productionDeployment: $productionDeployment,
-              productionVerification: $productionVerification
-            }' > "release-evidence-${VERSION}.json"
-
-          {
-            echo "Production verification: PASSED"
-            echo "Version: $VERSION"
-            echo "Environment: prod"
-            echo "Source branch: $SOURCE_BRANCH"
-            echo "Release commit: $RELEASE_SHA"
-            echo "Production pipeline: $pipeline_url"
-          } > "production-verification-${VERSION}.txt"
+          tar -czf "application-package-${VERSION}.tgz" \
+            -C release-artifact .
 
       - name: Create GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-          BUMP: ${{ steps.version.outputs.bump }}
-          RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
-          RELEASE_PR: ${{ github.event.pull_request.number }}
-          RELEASE_PR_TITLE: ${{ github.event.pull_request.title }}
-          PIPELINE_RUN_ID: ${{ steps.pipeline.outputs.run_id }}
+          VERSION: ${{ steps.release.outputs.version }}
+          BUMP: ${{ steps.release.outputs.bump }}
+          PR_NUMBER: ${{ steps.release.outputs.pr_number }}
+          PR_TITLE: ${{ steps.release.outputs.pr_title }}
+          PR_URL: ${{ steps.release.outputs.pr_url }}
+          SOURCE_BRANCH: ${{ steps.release.outputs.source_branch }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          DELIVERY_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "$VERSION already exists; nothing to recreate."
-          else
-            pipeline_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${PIPELINE_RUN_ID}"
-            pr_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${RELEASE_PR}"
+            exit 0
+          fi
 
-            notes="$(printf '%s\n' \
+          delivery_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${DELIVERY_RUN_ID}"
+
+          notes="$(
+            printf '%s\n' \
               '## Release information' \
               '' \
               "- **Version:** ${VERSION}" \
               "- **Classification:** ${BUMP}" \
-              '- **Environment:** prod' \
               "- **Source branch:** \`${SOURCE_BRANCH}\`" \
-              "- **Release PR:** [#${RELEASE_PR} — ${RELEASE_PR_TITLE}](${pr_url})" \
-              "- **Production pipeline:** [Run ${PIPELINE_RUN_ID}](${pipeline_url})" \
+              "- **Release PR:** [#${PR_NUMBER} — ${PR_TITLE}](${PR_URL})" \
+              "- **Delivery pipeline:** [Run ${DELIVERY_RUN_ID}](${delivery_url})" \
               '- **Production deployment:** passed' \
               '- **Production verification:** passed' \
               '' \
               '## Release assets' \
               '' \
               "- \`application-package-${VERSION}.tgz\`" \
-              "- \`release-evidence-${VERSION}.json\`" \
-              "- \`production-verification-${VERSION}.txt\`" \
-              '')"
+              ''
+          )"
 
-            gh release create "$VERSION" \
-              "application-package-${VERSION}.tgz#Release build artifact" \
-              "release-evidence-${VERSION}.json#Release evidence" \
-              "production-verification-${VERSION}.txt#Production verification" \
-              --target "$RELEASE_SHA" \
-              --title "Production Release ${VERSION}" \
-              --notes "$notes" \
-              --generate-notes
-          fi
+          gh release create "$VERSION" \
+            "application-package-${VERSION}.tgz#Release Build Artifact" \
+            --target "$RELEASE_SHA" \
+            --title "Production Release ${VERSION}" \
+            --notes "$notes" \
+            --generate-notes
 
-      - name: Publish summary
+      - name: Summary
         run: |
           {
-            echo "## Production Release ${{ steps.version.outputs.version }}"
-            echo "- Classification: ${{ steps.version.outputs.bump }}"
-            echo "- Environment: prod"
-            echo "- Production pipeline: ${{ steps.pipeline.outputs.run_id }}"
-            echo "- Production was not redeployed by this workflow"
-            echo "- Build artifact and release evidence attached"
+            echo "## Production Release ${{ steps.release.outputs.version }}"
+            echo "- Classification: ${{ steps.release.outputs.bump }}"
+            echo "- Source branch: ${{ steps.release.outputs.source_branch }}"
+            echo "- Release PR: #${{ steps.release.outputs.pr_number }}"
+            echo "- Delivery pipeline: ${{ github.event.workflow_run.id }}"
+            echo "- Release artifact attached"
             echo "- GitHub release and tag created"
           } >> "$GITHUB_STEP_SUMMARY"
