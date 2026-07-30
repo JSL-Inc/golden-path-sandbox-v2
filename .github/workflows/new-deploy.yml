@@ -162,8 +162,14 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
           TARGET_BRANCH: ${{ github.ref_name }}
         run: |
+          pull_requests="$(
+            gh api "/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}/pulls"
+          )"
+
           candidate="$(
-            gh api               "/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}/pulls"               --jq               --arg base "$TARGET_BRANCH"               '[
+            jq -c \
+              --arg base "$TARGET_BRANCH" \
+              '[
                 .[]
                 | select(
                     .merged_at != null
@@ -174,7 +180,7 @@ jobs:
                       (.head.ref | startswith("hotfix-"))
                     )
                   )
-              ][0]'
+              ][0]' <<< "$pull_requests"
           )"
 
           if [[ -z "$candidate" || "$candidate" == "null" ]]; then
