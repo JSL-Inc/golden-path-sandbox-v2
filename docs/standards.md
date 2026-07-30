@@ -49,12 +49,12 @@ The current-state standard allows direct emergency changes on unprotected hotfix
 
 | GitHub Environment | Current-state mapping | Gate |
 |---|---|---|
-| Integration | `feature-eint1-*`–`feature-eint6-*` | Automated deployment and smoke test |
-| QA | `release-eqa-*` / `hotfix-eqa-*` | Protected; QA and business evidence |
-| Preproduction | `release-epreprod-*` / `hotfix-epreprod-*` | Protected; release approval |
+| Integration | `feature-eint1-*`–`feature-eint6-*` | Automated deployment and INT gate |
+| QA | All `release-*` and `hotfix-*` branches | Protected; QA testing and evidence |
+| Preproduction | `release-epreprod-*` / `hotfix-epreprod-*` after EQA | Protected; optional preproduction testing and gate |
 | Production | `main` | Protected; self-review prevented and leadership approval |
 
-A release or hotfix branch selects exactly one shared environment from its name; EQA and ePreProd are not chained.
+All release and hotfix candidates pass through EQA. Teams that use ePreProd select it with an `epreprod` branch name, producing EQA → ePreProd → production. Teams without ePreProd use an `eqa` branch name, producing EQA → production.
 
 ## Releases
 
