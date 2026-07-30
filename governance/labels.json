@@ -1,0 +1,17 @@
+[
+  {
+    "name": "major",
+    "color": "B60205",
+    "description": "Breaking release change"
+  },
+  {
+    "name": "minor",
+    "color": "1D76DB",
+    "description": "Backward-compatible feature release"
+  },
+  {
+    "name": "patch",
+    "color": "0E8A16",
+    "description": "Backward-compatible fix release"
+  }
+]
