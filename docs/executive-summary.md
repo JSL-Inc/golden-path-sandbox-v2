@@ -16,7 +16,7 @@ It does not silently replace that model with conventional GitFlow. A reusable pu
 
 - Reusable CI, security, DAST, deployment, production-verification, release, and PR-policy workflows
 - JUnit XML and Cobertura XML evidence with a blocking 80% line-coverage baseline
-- Tests before build for fast failure
+- Architecture-aligned build and quality validation
 - Ruleset specifications for `feature-*`, `prerelease-*`, `release-*`, and `main`
 - Protected Integration, QA, Preproduction, and Production environment specifications
 - Build-once artifact promotion with deployment concurrency
