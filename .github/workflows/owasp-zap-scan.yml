@@ -1,4 +1,4 @@
-name: DAST
+name: OWASP ZAP Scan
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       blocking:
-        description: Fail the workflow on ZAP findings
+        description: Fail on ZAP findings
         required: false
         type: boolean
         default: false
@@ -18,8 +18,8 @@ permissions:
 
 jobs:
   dast:
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-dast.yml@v2
+    name: DAST
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/owasp-zap-scan.yml@main
     with:
       target_url: ${{ inputs.target_url }}
-      rules_file: .zap/rules.tsv
       blocking: ${{ inputs.blocking }}

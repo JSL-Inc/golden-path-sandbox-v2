@@ -1,0 +1,14 @@
+name: PR Flow Validation
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-flow:
+    name: PR Flow
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/pr-flow.yml@main

@@ -1,0 +1,13 @@
+name: Code Coverage
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-quality:
+    name: PR Quality
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/code-coverage.yml@main

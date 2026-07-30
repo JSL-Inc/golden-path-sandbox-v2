@@ -1,16 +1,22 @@
 {
-  "name": "release-branches-v2",
+  "name": "golden-path-release-branches-v2",
   "target": "branch",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["refs/heads/release-*"],
+      "include": [
+        "refs/heads/release-*"
+      ],
       "exclude": []
     }
   },
   "rules": [
-    {"type": "deletion"},
-    {"type": "non_fast_forward"},
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
     {
       "type": "pull_request",
       "parameters": {
@@ -19,7 +25,9 @@
         "require_code_owner_review": false,
         "require_last_push_approval": true,
         "required_review_thread_resolution": true,
-        "allowed_merge_methods": ["squash"]
+        "allowed_merge_methods": [
+          "squash"
+        ]
       }
     },
     {
@@ -28,9 +36,30 @@
         "strict_required_status_checks_policy": true,
         "do_not_enforce_on_create": true,
         "required_status_checks": [
-          {"context": "Standard CI / Golden Path CI"},
-          {"context": "Pull Request Policy / Branch and Release Policy"},
-          {"context": "Integration Test"}
+          {
+            "context": "Branch Policy / Branch Name"
+          },
+          {
+            "context": "PR Flow / Branch Flow"
+          },
+          {
+            "context": "PR Quality / Coverage 80%"
+          },
+          {
+            "context": "Delivery / INT Gate"
+          }
+        ]
+      }
+    },
+    {
+      "type": "code_scanning",
+      "parameters": {
+        "code_scanning_tools": [
+          {
+            "tool": "CodeQL",
+            "alerts_threshold": "errors_and_warnings",
+            "security_alerts_threshold": "high_or_higher"
+          }
         ]
       }
     }

@@ -1,0 +1,13 @@
+name: Branch Name Policy
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-policy:
+    name: Branch Policy
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/branch-validation.yml@main

@@ -1,0 +1,16 @@
+name: Feature Tagging
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - "release-eqa-*"
+      - "release-epreprod-*"
+
+permissions:
+  contents: write
+
+jobs:
+  feature-traceability:
+    name: Feature Traceability
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/feature-tagging.yml@main

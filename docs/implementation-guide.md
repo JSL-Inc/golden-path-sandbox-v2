@@ -10,7 +10,7 @@
 ## 2. Application repository
 
 1. Create from `golden-path-template-v2`.
-2. Replace the sample application and scripts beneath `.github/golden-path/`.
+2. Replace the sample application and scripts beneath `scripts/`.
 3. Replace `@jacoblaw1` with approved CODEOWNERS teams.
 4. Run each workflow once before selecting its exact check name in a ruleset.
 5. Create the labels listed in `governance/settings.md`; only the three SemVer
