@@ -52,9 +52,9 @@ After approval, squash merge into `release-eqa-poc-release`.
 - One **Branch CI and Delivery** run executes Standard CI, integration, and
   regression.
 - That run creates the release-candidate artifact once.
-- `release-eqa-*` and `hotfix-eqa-*` request only the protected `eqa` Environment.
-- `release-epreprod-*` and `hotfix-epreprod-*` request only the protected `epreprod` Environment.
-- After the selected shared-environment gate, the release candidate is ready for production.
+- Every release and hotfix candidate first requests the protected `eqa` Environment.
+- `release-eqa-*` and `hotfix-eqa-*` are ready for production after the QA Gate.
+- `release-epreprod-*` and `hotfix-epreprod-*` promote the same artifact from EQA through the protected `epreprod` Environment and ePreProd Gate.
 
 Open `release-eqa-poc-release → main` and add exactly one `major`, `minor`, or `patch`
 label. PR policy shows why zero or two labels are rejected. Obtain the two
@@ -62,15 +62,14 @@ required approvals and merge.
 
 ### 4. Production and official release
 
-The merge starts one **Production Release** run.
+The merge starts one **Branch Delivery Pipeline** run on `main`.
 
-- It resolves the merged release PR and the successful release-branch run.
-- It downloads that run's artifact; it does not rebuild on `main`.
+- It resolves the merged release PR and successful release-branch run.
+- It imports that run's application artifact; it does not rebuild on `main`.
 - It requests the protected `prod` Environment.
-- After approval, it deploys, smoke tests, and performs production verification.
-- It validates verification evidence against the merged main commit.
-- It calculates the next SemVer from the PR label.
-- It creates the `vMAJOR.MINOR.PATCH` tag and GitHub Release automatically.
+- After approval, it deploys, smoke tests, and reports **Production Verification**.
+- A successful completed delivery run triggers **Production Release**.
+- The release workflow calculates the next SemVer from the PR label and creates the `vMAJOR.MINOR.PATCH` tag and GitHub Release automatically.
 
 ### 5. Optional controls
 
