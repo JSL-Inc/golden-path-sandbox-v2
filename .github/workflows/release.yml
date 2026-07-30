@@ -14,4 +14,4 @@ permissions:
 jobs:
   production-release:
     name: Production Release
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/release.yml@main
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/release.yml@undoing-release-mistake
