@@ -249,7 +249,10 @@ jobs:
   integration:
     name: Integration Tests
     needs: [route, deploy]
-    if: needs.route.outputs.integration == 'true'
+    if: >-
+      always() &&
+      needs.route.outputs.integration == 'true' &&
+      needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -270,7 +273,10 @@ jobs:
   regression:
     name: Regression Tests
     needs: [route, deploy]
-    if: needs.route.outputs.regression == 'true'
+    if: >-
+      always() &&
+      needs.route.outputs.regression == 'true' &&
+      needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
