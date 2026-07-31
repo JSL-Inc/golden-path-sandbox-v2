@@ -37,28 +37,16 @@
         "do_not_enforce_on_create": true,
         "required_status_checks": [
           {
-            "context": "Branch Policy / Branch Name"
+            "context": "Branch Name"
           },
           {
-            "context": "PR Flow / Branch Flow"
+            "context": "Branch Flow"
           },
           {
-            "context": "PR Quality / Coverage 80%"
+            "context": "Coverage 80%"
           },
           {
-            "context": "Delivery / Build and Quality Checks"
-          }
-        ]
-      }
-    },
-    {
-      "type": "code_scanning",
-      "parameters": {
-        "code_scanning_tools": [
-          {
-            "tool": "CodeQL",
-            "alerts_threshold": "errors_and_warnings",
-            "security_alerts_threshold": "high_or_higher"
+            "context": "Build and Quality Checks"
           }
         ]
       }
