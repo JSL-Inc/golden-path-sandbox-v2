@@ -154,6 +154,7 @@ jobs:
     if: needs.route.outputs.branch_type == 'main'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Find the merged release candidate
         id: candidate
         shell: bash
