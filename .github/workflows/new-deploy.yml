@@ -297,7 +297,10 @@ jobs:
   smoke:
     name: Smoke Tests
     needs: [route, deploy]
-    if: needs.route.outputs.smoke == 'true'
+    if: >-
+      always() &&
+      needs.route.outputs.smoke == 'true' &&
+      needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -336,7 +339,10 @@ jobs:
   dast:
     name: DAST Policy Validation
     needs: [route, deploy]
-    if: needs.route.outputs.dast == 'true'
+    if: >-
+      always() &&
+      needs.route.outputs.dast == 'true' &&
+      needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
