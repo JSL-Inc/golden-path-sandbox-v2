@@ -1,5 +1,5 @@
 {
-  "name": "release-branches-v2",
+  "name": "golden-path-release-branches-v2",
   "target": "branch",
   "enforcement": "active",
   "conditions": {

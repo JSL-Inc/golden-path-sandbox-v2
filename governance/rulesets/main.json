@@ -1,5 +1,5 @@
 {
-  "name": "main-production-v2",
+  "name": "golden-path-main-v2",
   "target": "branch",
   "enforcement": "active",
   "conditions": {

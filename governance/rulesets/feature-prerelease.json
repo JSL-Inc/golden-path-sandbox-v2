@@ -1,12 +1,11 @@
 {
-  "name": "feature-prerelease-v2",
+  "name": "golden-path-feature-branches-v2",
   "target": "branch",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
       "include": [
-        "refs/heads/feature-*",
-        "refs/heads/prerelease-*"
+        "refs/heads/feature-*"
       ],
       "exclude": []
     }
