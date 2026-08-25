@@ -1,0 +1,45 @@
+name: Golden Path
+
+on:
+  push:
+    branches:
+      - "develop-*"
+      - "feature-*"
+      - "release-*"
+      - "hotfix-*"
+      - main
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  code-quality: write
+
+jobs:
+  ci:
+    if: github.event.created == false && github.ref_name != 'main'
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@reusable-ci-cd
+    with:
+      prepare_command: python -m pip install -r requirements.txt
+      build_command: bash scripts/build.sh
+      unit_test_command: bash scripts/unit-test.sh
+      lint_command: |
+        ruff check testing
+        ruff format --check testing
+      coverage_language: python
+
+  cd:
+    needs: ci
+    if: >-
+      always() &&
+      github.event.created == false &&
+      (
+        github.ref_name == 'main' ||
+        (
+          needs.ci.result == 'success' &&
+          !startsWith(github.ref_name, 'develop-')
+        )
+      )
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@reusable-ci-cd
+    with:
+      caller_workflow_file: golden-path.yml
