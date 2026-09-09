@@ -1,0 +1,130 @@
+name: Golden Path Promotion
+
+on:
+  pull_request:
+    branches:
+      - "release-*"
+      - main
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: golden-path-promotion-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  promotion_gate:
+    name: Promotion Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Verify prior delivery evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CD_WORKFLOW: golden-path-cd.yml
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+
+          case "$BASE_BRANCH" in
+            release-*)
+              required_gate="INT Gate"
+              ;;
+            main)
+              required_gate="Release Readiness"
+              ;;
+            *)
+              echo "::error::Promotion Gate does not support target branch $BASE_BRANCH."
+              exit 1
+              ;;
+          esac
+
+          for attempt in {1..80}; do
+            response="$(
+              gh api \
+                --method GET \
+                "/repos/${GITHUB_REPOSITORY}/actions/workflows/${CD_WORKFLOW}/runs" \
+                -f head_sha="$HEAD_SHA" \
+                -f event="push" \
+                -f per_page=20
+            )"
+
+            run_id="$(
+              jq -r '
+                .workflow_runs
+                | sort_by(.created_at)
+                | reverse
+                | .[0].id // empty
+              ' <<< "$response"
+            )"
+            status="$(
+              jq -r '
+                .workflow_runs
+                | sort_by(.created_at)
+                | reverse
+                | .[0].status // empty
+              ' <<< "$response"
+            )"
+            conclusion="$(
+              jq -r '
+                .workflow_runs
+                | sort_by(.created_at)
+                | reverse
+                | .[0].conclusion // empty
+              ' <<< "$response"
+            )"
+
+            if [[ -z "$run_id" ]]; then
+              echo "Attempt $attempt: no push CD run exists yet for $HEAD_SHA."
+              sleep 15
+              continue
+            fi
+
+            if [[ "$status" != "completed" ]]; then
+              echo "Attempt $attempt: CD run $run_id is currently $status."
+              sleep 15
+              continue
+            fi
+
+            if [[ "$conclusion" != "success" ]]; then
+              echo "::error::CD run $run_id completed with conclusion: $conclusion"
+              exit 1
+            fi
+
+            jobs="$(
+              gh api \
+                --method GET \
+                "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs" \
+                -f filter=latest \
+                -f per_page=100
+            )"
+
+            gate_conclusion="$(
+              jq -r \
+                --arg gate "$required_gate" \
+                '[
+                  .jobs[]
+                  | select(.name == $gate or (.name | endswith($gate)))
+                ]
+                | last
+                | .conclusion // empty
+                ' <<< "$jobs"
+            )"
+
+            if [[ "$gate_conclusion" != "success" ]]; then
+              echo "::error::$required_gate was not successful in CD run $run_id. Result: ${gate_conclusion:-missing}"
+              exit 1
+            fi
+
+            echo "$required_gate passed for PR head $HEAD_SHA in CD run $run_id."
+            exit 0
+          done
+
+          echo "::error::Timed out waiting for CD evidence on $HEAD_SHA."
+          exit 1
