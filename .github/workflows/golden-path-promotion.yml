@@ -37,7 +37,7 @@ jobs:
             release-*)
               required_gate="INT Gate"
               ;;
-            main|'v0.*')
+            main|v0.*)
               required_gate="Release Readiness"
               ;;
             *)
