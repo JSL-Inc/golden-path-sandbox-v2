@@ -1,0 +1,22 @@
+name: Golden Path CD
+
+on:
+  push:
+    branches:
+      - "feature-*"
+      - "release-*"
+      - "hotfix-*"
+      - main
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+
+jobs:
+  delivery:
+    name: Delivery
+    if: github.event.created == false
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v0.0.2a-gh-artifacts
+    secrets: inherit
+
