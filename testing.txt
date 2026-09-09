@@ -6,3 +6,4 @@ break2
 break2.1
 break 3, 4
 ruleset check2
+release
