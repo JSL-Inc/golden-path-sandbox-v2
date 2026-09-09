@@ -1,0 +1,39 @@
+name: Golden Path CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - "develop-*"
+      - "feature-*"
+      - "release-*"
+      - "hotfix-*"
+      - main
+      - v0.0.2a-gh-artifacts
+
+permissions:
+  contents: read
+  code-quality: write
+
+concurrency:
+  group: golden-path-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    if: github.event_name != 'push' || github.event.created == false
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v0.0.2a-gh-artifacts
+    with:
+      prepare_command: python -m pip install -r requirements.txt
+      build_command: bash scripts/build.sh
+      unit_test_command: bash scripts/unit-test.sh
+      lint_command: |
+        ruff check testing
+        ruff format --check testing
+      coverage_language: python
+      publish_artifact: ${{ github.event_name == 'push' && github.ref_name != 'main' }}
+      artifact_name: application-package
+      artifact_path: dist/**
+
