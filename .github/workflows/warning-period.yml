@@ -1,0 +1,15 @@
+name: Golden Path Warning Period
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  checks: read
+  contents: read
+  pull-requests: write
+  statuses: read
+
+jobs:
+  warning:
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/warning-period.yml@v0.0.3a-warnings
