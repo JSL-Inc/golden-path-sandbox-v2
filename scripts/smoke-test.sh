@@ -2,8 +2,7 @@
 set -euo pipefail
 
 environment="${1:?Environment is required}"
-artifact_directory="${2:?Artifact directory is required}"
-
-test -d "$artifact_directory"
-test -n "$(find "$artifact_directory" -type f -print -quit)"
+application_url="${2:?Staging URL is required}"
+curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 10 \
+  "${application_url%/}/health" >/dev/null
 echo "Smoke test in $environment passed."
