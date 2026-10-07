@@ -7,7 +7,7 @@ jobs and gates are maintained in
 
 ## Included controls
 
-- COUNTRY branch flow: `main → release → feature → develop`
+- Branch flow: `main → release → feature → develop`
 - Pull requests for `develop → feature → release → main`
 - Automatic `f###` traceability tag when a feature PR merges into a release branch
 - Hotfix flow: `main → hotfix → main → release → feature`
@@ -56,3 +56,39 @@ policy and quality checks. GitHub only discovers workflow callers directly
 under `.github/workflows`.
 
 See [docs/standards.md](docs/standards.md), [docs/control-matrix.md](docs/control-matrix.md), and [docs/demo-plan.md](docs/demo-plan.md).
+
+## Azure Container Apps MVP
+
+The CI caller builds a Python image with Paketo after unit and lint checks, pushes
+it to ACR, and uploads a small descriptor containing the image digest. CD
+downloads that descriptor from the successful source CI run. On a release merge
+to `main`, it reuses the validated release image without rebuilding it.
+
+Each ACA environment stages the exact digest on its `staging` label. The
+existing test gate checks the staging URL, then `aca-deploy.sh` swaps
+`staging` and `main`. Production verification checks the promoted `main`
+URL. The pipeline does not create or reconfigure the app.
+
+Configure these values outside the repository:
+
+| Scope | Names | Purpose |
+| --- | --- | --- |
+| Repository secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Azure OIDC for CI image publishing |
+| Repository variables | `ACR_NAME`, `ACR_IMAGE_REPOSITORY`, `PACK_IMAGE`, `PAKETO_BUILDER_IMAGE`, `PAKETO_RUN_IMAGE` | Registry destination and approved, versioned pack, builder, and run images mirrored in that ACR |
+| GitHub environment secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | OIDC identity for each deployment environment, if different from CI |
+| GitHub environment variables | `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP` | Existing ACA target for `eint1`–`eint6`, `eqa`, `epreprod`, and `prod` as used |
+
+Provision each ACA app with deployment labels mode, an initial `main` label,
+external HTTP ingress on port 8080, and an assigned identity permitted to pull
+from ACR. Grant the GitHub CI identity `AcrPush` and the appropriate ACA
+deployment identity access only to its target resources. Configure Azure
+federated credentials for the applicable GitHub branch and environment OIDC
+subjects. The runner must be able to reach the label URL for `/health`.
+Store application settings and credentials in the ACA environment, not in the
+deployment descriptor.
+
+The existing integration and regression scripts are demonstration checks, and
+the DAST job validates the ZAP policy file only. Replace those with real
+application tests before treating the gate as production assurance. The first
+`main` revision and registry pull identity are provisioning tasks. A failed
+stage does not move `main`; rollback after promotion is a manual label change.
