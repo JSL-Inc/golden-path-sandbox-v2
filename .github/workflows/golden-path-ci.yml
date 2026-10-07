@@ -10,11 +10,11 @@ on:
       - "release-*"
       - "hotfix-*"
       - main
-      - v0.0.2a-gh-artifacts
 
 permissions:
   contents: read
   code-quality: write
+  id-token: write
 
 concurrency:
   group: golden-path-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -24,7 +24,7 @@ jobs:
   ci:
     name: CI
     if: github.event_name != 'push' || github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v0.0.2a-gh-artifacts
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.0a-aca
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
@@ -33,7 +33,11 @@ jobs:
         ruff check testing
         ruff format --check testing
       coverage_language: python
-      publish_artifact: ${{ github.event_name == 'push' && github.ref_name != 'main' }}
+      artifact_type: container
+      registry_provider: acr
+      acr_name: ${{ vars.ACR_NAME }}
+      image_repository: ${{ vars.ACR_IMAGE_REPOSITORY }}
+      container_build_command: bash scripts/aca-build.sh
+      publish_artifact: ${{ github.event_name == 'push' && (startsWith(github.ref_name, 'feature-') || startsWith(github.ref_name, 'release-') || startsWith(github.ref_name, 'hotfix-')) }}
       artifact_name: application-package
-      artifact_path: dist/**
-
+    secrets: inherit
