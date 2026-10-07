@@ -7,17 +7,22 @@ on:
       - "release-*"
       - "hotfix-*"
       - main
-      - "v0.*"
 
 permissions:
   actions: read
   contents: write
+  id-token: write
   pull-requests: read
 
 jobs:
   delivery:
     name: Delivery
     if: github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v0.0.2a-gh-artifacts
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v1.0.0a-aca
+    with:
+      artifact_type: container
+      deployment_provider: azure-container-apps
+      deploy_command: bash scripts/aca-deploy.sh
+      production_verify_command: bash scripts/production-verify.sh
     secrets: inherit
 
