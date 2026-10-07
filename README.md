@@ -60,39 +60,50 @@ See [docs/standards.md](docs/standards.md), [docs/control-matrix.md](docs/contro
 ## Azure Container Apps MVP
 
 The CI caller builds a Python image with Paketo after unit and lint checks, pushes
-it to ACR, and uploads a small descriptor containing the image digest. CD
-downloads that descriptor from the successful source CI run. On a release merge
-to `main`, it reuses the validated release image without rebuilding it.
+it to ACR, and uploads a descriptor containing the image digest. CD downloads
+that descriptor from the successful source CI run. A release merged to `main`
+uses the validated release image without rebuilding it.
 
-Each ACA environment stages the exact digest on its `staging` label. The
-existing test gate checks the staging URL, then `aca-deploy.sh` swaps
-`staging` and `main`. Production verification checks the promoted `main`
-URL. The pipeline does not create or reconfigure the app.
+The branch route picks a GitHub environment and its app settings:
+
+| Branch | App settings from | Checks after deployment |
+| --- | --- | --- |
+| `feature-eint1-f*` through `feature-eint6-f*` | Matching `eint1`–`eint6` environment | Integration, regression, INT Gate |
+| `release-eqa-*` or `hotfix-eqa-*` | `eqa` | Integration, regression, smoke, DAST, QA Gate |
+| `release-epreprod-*` or `hotfix-epreprod-*` | `eqa`, then `epreprod` after QA Gate | QA Gate, then ePreProd checks and gate |
+| `main` | `prod` | Smoke, production verification, release |
+
+For each environment, `aca-deploy.sh` creates the app if absent, or enables
+ingress on the existing app. It makes sure there is a `main` revision label,
+updates the image on `staging`, swaps `staging` and `main`, then reports the
+app URL. The existing checks and gates run after this deploy step, as in the
+GitLab example. A failing check blocks the next pipeline stage but does not
+automatically roll back the label swap.
 
 Configure these values outside the repository:
 
 | Scope | Names | Purpose |
 | --- | --- | --- |
 | Repository secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Azure OIDC for CI image publishing |
-| Repository variables | `ACR_NAME`, `ACR_IMAGE_REPOSITORY`, `PACK_IMAGE`, `PAKETO_BUILDER_IMAGE`, `PAKETO_RUN_IMAGE` | Registry destination and approved, versioned pack, builder, and run images mirrored in that ACR |
-| GitHub environment secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | OIDC identity for each deployment environment, if different from CI |
-| GitHub environment variables | `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP` | Existing ACA target for `eint1`–`eint6`, `eqa`, `epreprod`, and `prod` as used |
+| Repository variables | `ACR_NAME`, `ACR_IMAGE_REPOSITORY`, `PACK_IMAGE`, `PAKETO_BUILDER_IMAGE`, `PAKETO_RUN_IMAGE` | ACR destination and approved pack, builder, and run images |
+| GitHub environment secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | OIDC identity for that deployment environment |
+| GitHub environment variables | `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP`, `ACA_ENVIRONMENT`, `ACA_UAMI_RESOURCE_ID` | App name, resource group, existing ACA managed environment and pull identity for each target |
+| Optional GitHub environment variables | `ACA_CPU`, `ACA_MEMORY`, `ACA_TARGET_PORT`, `ACA_STARTUP_COMMAND` | Defaults: `0.5`, `1Gi`, `8080`, `/cnb/process/web` |
 
-Provision each ACA app with deployment labels mode, an initial `main` label,
-external HTTP ingress on port 8080, and an assigned identity permitted to pull
-from ACR. Grant the GitHub CI identity `AcrPush` and the appropriate ACA
-deployment identity access only to its target resources. Configure Azure
+Set distinct app and resource group values for each environment if those
+deployments must be isolated. Provision the ACA managed environments and
+user-assigned identities in Azure, grant the app identity pull access to ACR,
+and grant the GitHub deployment identity permission to create or update the
+target apps. Give the CI identity permission to push to ACR. Configure Azure
 federated credentials for the applicable GitHub branch and environment OIDC
-subjects. The runner must be able to reach the label URL for `/health`.
-Store application settings and credentials in the ACA environment, not in the
-deployment descriptor.
+subjects. Smoke checks need the deployed app URL's `/health` to be reachable.
+Store app settings and credentials in Azure or GitHub environment configuration.
 
 The existing integration and regression scripts are demonstration checks, and
-the DAST job validates the ZAP policy file only. Replace those with real
-application tests before treating the gate as production assurance. The first
-`main` revision and registry pull identity are provisioning tasks. The
-organization's Python package mirror and CA bindings must be supplied for
-restricted-network builds; no endpoint or credential is embedded here. A failed
-stage does not move `main`; rollback after promotion is a manual label change.
-GitHub environments with required reviewers may ask for approval again at the
-promotion job.
+the DAST job validates the ZAP policy file only. Replace them with real
+application checks before relying on the gates for production assurance.
+Application-specific OpenTelemetry variables, internal CA bindings, and Python
+package mirror settings from the GitLab example are left for the adopting app;
+no organization endpoint or credential is embedded here. A failed deployment
+or post-deploy check requires an operator to restore the previous revision if
+needed.
