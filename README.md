@@ -90,5 +90,9 @@ deployment descriptor.
 The existing integration and regression scripts are demonstration checks, and
 the DAST job validates the ZAP policy file only. Replace those with real
 application tests before treating the gate as production assurance. The first
-`main` revision and registry pull identity are provisioning tasks. A failed
+`main` revision and registry pull identity are provisioning tasks. The
+organization's Python package mirror and CA bindings must be supplied for
+restricted-network builds; no endpoint or credential is embedded here. A failed
 stage does not move `main`; rollback after promotion is a manual label change.
+GitHub environments with required reviewers may ask for approval again at the
+promotion job.
