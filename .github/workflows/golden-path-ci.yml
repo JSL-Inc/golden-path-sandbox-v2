@@ -23,7 +23,7 @@ jobs:
   ci:
     name: CI
     if: github.event_name != 'push' || github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.2a
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.3a
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
@@ -35,6 +35,9 @@ jobs:
       artifact_type: container
       acr_name: ${{ vars.ACR_NAME }}
       image_repository: ${{ vars.ACR_IMAGE_REPOSITORY }}
+      pack_image: ${{ vars.PACK_IMAGE }}
+      paketo_builder_image: ${{ vars.PAKETO_BUILDER_IMAGE }}
+      paketo_run_image: ${{ vars.PAKETO_RUN_IMAGE }}
       container_build_command: bash scripts/aca-build.sh
       publish_artifact: ${{ github.event_name == 'push' && (startsWith(github.ref_name, 'feature-') || startsWith(github.ref_name, 'release-') || startsWith(github.ref_name, 'hotfix-')) }}
       artifact_name: application-package
