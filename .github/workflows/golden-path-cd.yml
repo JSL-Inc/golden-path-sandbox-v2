@@ -11,14 +11,13 @@ on:
 permissions:
   actions: read
   contents: write
-  id-token: write
   pull-requests: read
 
 jobs:
   delivery:
     name: Delivery
     if: github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v1.0.0a-aca
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v1.0.1a-aca
     with:
       artifact_type: container
       deployment_provider: azure-container-apps
