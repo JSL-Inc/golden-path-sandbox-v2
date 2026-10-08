@@ -23,7 +23,7 @@ jobs:
   ci:
     name: CI
     if: github.event_name != 'push' || github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.1a-aca
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.2a
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
@@ -33,7 +33,6 @@ jobs:
         ruff format --check testing
       coverage_language: python
       artifact_type: container
-      registry_provider: acr
       acr_name: ${{ vars.ACR_NAME }}
       image_repository: ${{ vars.ACR_IMAGE_REPOSITORY }}
       container_build_command: bash scripts/aca-build.sh
