@@ -4,17 +4,22 @@ set -euo pipefail
 : "${IMAGE_TAG:?CI must supply IMAGE_TAG}"
 : "${PACK_IMAGE:?Set PACK_IMAGE to an approved pack CLI image in ACR}"
 : "${PAKETO_BUILDER_IMAGE:?Set PAKETO_BUILDER_IMAGE to an approved Paketo builder in ACR}"
-: "${PAKETO_RUN_IMAGE:?Set PAKETO_RUN_IMAGE to an approved Paketo run image in ACR}"
 : "${ACR_NAME:?CI must supply ACR_NAME}"
 : "${GITHUB_OUTPUT:?CI must supply GITHUB_OUTPUT}"
 
 registry_server="${ACR_NAME}.azurecr.io"
-for image in "$PACK_IMAGE" "$PAKETO_BUILDER_IMAGE" "$PAKETO_RUN_IMAGE"; do
+for image in "$PACK_IMAGE" "$PAKETO_BUILDER_IMAGE" "${PAKETO_RUN_IMAGE:-}"; do
+  [[ -z "$image" ]] && continue
   if [[ "$image" != "$registry_server/"* ]]; then
     echo "::error::Tooling and builder images must be mirrored in the configured ACR."
     exit 1
   fi
 done
+
+run_image_args=()
+if [[ -n "${PAKETO_RUN_IMAGE:-}" ]]; then
+  run_image_args=(--run-image "$PAKETO_RUN_IMAGE")
+fi
 
 # Azure login and az acr login run in the reusable CI workflow before this script.
 docker run --rm --pull always \
@@ -24,7 +29,7 @@ docker run --rm --pull always \
   "$PACK_IMAGE" build "$IMAGE_TAG" \
     --path /workspace \
     --builder "$PAKETO_BUILDER_IMAGE" \
-    --run-image "$PAKETO_RUN_IMAGE" \
+    "${run_image_args[@]}" \
     --pull-policy always \
     --publish
 
