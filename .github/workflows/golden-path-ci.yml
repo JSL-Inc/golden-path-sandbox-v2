@@ -14,7 +14,6 @@ on:
 permissions:
   contents: read
   code-quality: write
-  id-token: write
 
 concurrency:
   group: golden-path-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -24,7 +23,7 @@ jobs:
   ci:
     name: CI
     if: github.event_name != 'push' || github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.0a-aca
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.1a-aca
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
