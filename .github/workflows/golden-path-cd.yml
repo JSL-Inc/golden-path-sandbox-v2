@@ -17,11 +17,10 @@ jobs:
   delivery:
     name: Delivery
     if: github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v1.0.2a
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@v1.0.3a
     with:
       artifact_type: container
       deployment_provider: azure-container-apps
       deploy_command: bash scripts/aca-deploy.sh
       production_verify_command: bash scripts/production-verify.sh
     secrets: inherit
-
