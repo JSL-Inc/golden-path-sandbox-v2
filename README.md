@@ -81,12 +81,41 @@ app URL. The existing checks and gates run after this deploy step, as in the
 GitLab example. A failing check blocks the next pipeline stage but does not
 automatically roll back the label swap.
 
-Configure these values outside the repository:
+The CI and CD callers reference `@v1.0.3a`. Configure these values in GitHub
+settings rather than committing their values:
+
+| Reusable CI input | Application repository variable | Purpose |
+| --- | --- | --- |
+| `acr_name` | `ACR_NAME` | Existing ACR name without `.azurecr.io` |
+| `image_repository` | `ACR_IMAGE_REPOSITORY` | Application repository path, such as `dcoe/gh-poc` |
+| `pack_image` | `PACK_IMAGE` | Full approved pack CLI image reference in ACR |
+| `paketo_builder_image` | `PAKETO_BUILDER_IMAGE` | Full approved Paketo builder image reference in ACR |
+| `paketo_run_image` | `PAKETO_RUN_IMAGE` | Optional full ACR runtime image reference; blank uses the builder default |
+
+```yaml
+with:
+  artifact_type: container
+  acr_name: ${{ vars.ACR_NAME }}
+  image_repository: ${{ vars.ACR_IMAGE_REPOSITORY }}
+  pack_image: ${{ vars.PACK_IMAGE }}
+  paketo_builder_image: ${{ vars.PAKETO_BUILDER_IMAGE }}
+  paketo_run_image: ${{ vars.PAKETO_RUN_IMAGE }}
+  container_build_command: bash scripts/aca-build.sh
+secrets: inherit
+```
+
+The shared CI workflow receives image settings through inputs rather than
+reading application variables directly. The caller can pass repository
+variables or literal image references. The Paketo sample requires pack and
+builder images; these inputs default to blank so package and Dockerfile
+callers do not need them. All tooling and runtime images must come from ACR.
+If the run-image override is blank, the approved builder's default runtime
+must reference an image in ACR; otherwise set `PAKETO_RUN_IMAGE`.
+No image reference or credential specific to an organization is embedded here.
 
 | Scope | Names | Purpose |
 | --- | --- | --- |
 | Repository secret | `AZURE_CREDENTIALS` | Service principal JSON for CI image publishing |
-| Repository variables | `ACR_NAME`, `ACR_IMAGE_REPOSITORY`, `PACK_IMAGE`, `PAKETO_BUILDER_IMAGE`, `PAKETO_RUN_IMAGE` | ACR destination and approved pack, builder, and run images |
 | GitHub environment secret | `AZURE_CREDENTIALS` | Service principal JSON for that deployment environment; may use a different principal for each target |
 | GitHub environment variables | `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP`, `ACA_ENVIRONMENT`, `ACA_UAMI_RESOURCE_ID` | App name, resource group, existing ACA managed environment and pull identity for each target |
 | Optional GitHub environment variables | `ACA_CPU`, `ACA_MEMORY`, `ACA_TARGET_PORT`, `ACA_STARTUP_COMMAND` | Defaults: `0.5`, `1Gi`, `8080`, `/cnb/process/web` |
@@ -96,14 +125,21 @@ Create the `AZURE_CREDENTIALS` Actions secret as a JSON object with
 Azure service principal. Set it as a repository secret for CI and as an
 environment secret for each deployed target (`eint1`–`eint6`, `eqa`,
 `epreprod`, `prod`). The environment secret takes precedence for that
-deployment job. Rotate the client secret in GitHub when it expires; never
-commit the JSON or write it to logs.
+deployment job. Set each target's secret explicitly; if it is missing, the
+repository CI secret can be used instead. Use the ACR subscription ID in the
+CI JSON and that target's ACA subscription ID in the CD JSON. Rotate the client
+secret in GitHub when it expires; never commit the JSON or write it to logs.
+
+`ACA_ENVIRONMENT` is the Azure managed environment name, not the GitHub
+environment name. `IMAGE_TAG`, digest/reference metadata, and `GITHUB_OUTPUT`
+are supplied by the pipeline; do not configure them as variables.
 
 Set distinct app and resource group values for each environment if those
 deployments must be isolated. Provision the ACA managed environments and
 user-assigned identities in Azure, grant the app identity pull access to ACR,
 and grant the deployment service principal permission to create or update its
-target apps. Grant the CI service principal push access to ACR. The app's
+target apps and assign the configured user-assigned identity. Grant the CI
+service principal push access to ACR. The app's
 `ACA_UAMI_RESOURCE_ID` is its registry pull identity, separate from the
 service principal used by GitHub Actions. Smoke checks need the deployed
 app URL's `/health` to be reachable. Store app settings and credentials in
