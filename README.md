@@ -59,8 +59,9 @@ See [docs/standards.md](docs/standards.md), [docs/control-matrix.md](docs/contro
 
 ## Azure Container Apps MVP
 
-The CI caller builds a Python image with Paketo after unit and lint checks, pushes
-it to ACR, and uploads a descriptor containing the image digest. CD downloads
+The CI caller builds a Python image with Paketo after unit and lint checks,
+pushes it to ACR (the registry for this MVP), and uploads a descriptor
+containing the image digest. CD downloads
 that descriptor from the successful source CI run. A release merged to `main`
 uses the validated release image without rebuilding it.
 
