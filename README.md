@@ -84,20 +84,29 @@ Configure these values outside the repository:
 
 | Scope | Names | Purpose |
 | --- | --- | --- |
-| Repository secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Azure OIDC for CI image publishing |
+| Repository secret | `AZURE_CREDENTIALS` | Service principal JSON for CI image publishing |
 | Repository variables | `ACR_NAME`, `ACR_IMAGE_REPOSITORY`, `PACK_IMAGE`, `PAKETO_BUILDER_IMAGE`, `PAKETO_RUN_IMAGE` | ACR destination and approved pack, builder, and run images |
-| GitHub environment secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | OIDC identity for that deployment environment |
+| GitHub environment secret | `AZURE_CREDENTIALS` | Service principal JSON for that deployment environment; may use a different principal for each target |
 | GitHub environment variables | `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP`, `ACA_ENVIRONMENT`, `ACA_UAMI_RESOURCE_ID` | App name, resource group, existing ACA managed environment and pull identity for each target |
 | Optional GitHub environment variables | `ACA_CPU`, `ACA_MEMORY`, `ACA_TARGET_PORT`, `ACA_STARTUP_COMMAND` | Defaults: `0.5`, `1Gi`, `8080`, `/cnb/process/web` |
+
+Create the `AZURE_CREDENTIALS` Actions secret as a JSON object with
+`clientId`, `clientSecret`, `subscriptionId`, and `tenantId` from the
+Azure service principal. Set it as a repository secret for CI and as an
+environment secret for each deployed target (`eint1`–`eint6`, `eqa`,
+`epreprod`, `prod`). The environment secret takes precedence for that
+deployment job. Rotate the client secret in GitHub when it expires; never
+commit the JSON or write it to logs.
 
 Set distinct app and resource group values for each environment if those
 deployments must be isolated. Provision the ACA managed environments and
 user-assigned identities in Azure, grant the app identity pull access to ACR,
-and grant the GitHub deployment identity permission to create or update the
-target apps. Give the CI identity permission to push to ACR. Configure Azure
-federated credentials for the applicable GitHub branch and environment OIDC
-subjects. Smoke checks need the deployed app URL's `/health` to be reachable.
-Store app settings and credentials in Azure or GitHub environment configuration.
+and grant the deployment service principal permission to create or update its
+target apps. Grant the CI service principal push access to ACR. The app's
+`ACA_UAMI_RESOURCE_ID` is its registry pull identity, separate from the
+service principal used by GitHub Actions. Smoke checks need the deployed
+app URL's `/health` to be reachable. Store app settings and credentials in
+Azure or GitHub environment configuration.
 
 The existing integration and regression scripts are demonstration checks, and
 the DAST job validates the ZAP policy file only. Replace them with real
