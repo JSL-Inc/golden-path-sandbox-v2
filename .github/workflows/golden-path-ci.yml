@@ -24,7 +24,7 @@ jobs:
   ci:
     name: CI
     if: github.event_name != 'push' || github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.4a
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.5a
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
