@@ -81,7 +81,7 @@ app URL. The existing checks and gates run after this deploy step, as in the
 GitLab example. A failing check blocks the next pipeline stage but does not
 automatically roll back the label swap.
 
-The CI and CD callers reference `@v1.0.3a`. Configure these values in GitHub
+The CI and CD callers reference `@v1.0.4a`. Configure these values in GitHub
 settings rather than committing their values:
 
 | Reusable CI input | Application repository variable | Purpose |
@@ -115,20 +115,42 @@ No image reference or credential specific to an organization is embedded here.
 
 | Scope | Names | Purpose |
 | --- | --- | --- |
-| Repository secret | `AZURE_CREDENTIALS` | Service principal JSON for CI image publishing |
-| GitHub environment secret | `AZURE_CREDENTIALS` | Service principal JSON for that deployment environment; may use a different principal for each target |
+| Repository secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Federated service principal IDs for CI image publishing |
+| GitHub environment secrets | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | Federated service principal IDs for each deployment target |
 | GitHub environment variables | `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP`, `ACA_ENVIRONMENT`, `ACA_UAMI_RESOURCE_ID` | App name, resource group, existing ACA managed environment and pull identity for each target |
 | Optional GitHub environment variables | `ACA_CPU`, `ACA_MEMORY`, `ACA_TARGET_PORT`, `ACA_STARTUP_COMMAND` | Defaults: `0.5`, `1Gi`, `8080`, `/cnb/process/web` |
 
-Create the `AZURE_CREDENTIALS` Actions secret as a JSON object with
-`clientId`, `clientSecret`, `subscriptionId`, and `tenantId` from the
-Azure service principal. Set it as a repository secret for CI and as an
-environment secret for each deployed target (`eint1`–`eint6`, `eqa`,
-`epreprod`, `prod`). The environment secret takes precedence for that
-deployment job. Set each target's secret explicitly; if it is missing, the
-repository CI secret can be used instead. Use the ACR subscription ID in the
-CI JSON and that target's ACA subscription ID in the CD JSON. Rotate the client
-secret in GitHub when it expires; never commit the JSON or write it to logs.
+Azure login uses a service principal with GitHub OIDC federation, matching
+the GitLab federated-token approach. Store these three Actions secrets in the
+application repository for CI: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and
+`AZURE_SUBSCRIPTION_ID`. Set the same secret names in each deployment
+environment (`eint1`–`eint6`, `eqa`, `epreprod`, `prod`) for CD. Use
+the ACR subscription ID for CI and the target ACA subscription ID for CD.
+Environment secrets override repository secrets; set all three explicitly
+for each target to avoid falling back to CI values.
+
+No client secret or `AZURE_CREDENTIALS` JSON is used. Both callers and reusable
+workflows grant `id-token: write` and callers use `secrets: inherit`.
+`azure/login@v2` requests the temporary token and exchanges it with Azure.
+The subsequent `az acr login --name "$ACR_NAME"` in CI authenticates Docker
+to ACR using that Azure session.
+
+The cloud team must configure the service principal's Azure federated
+credentials to trust the application/caller repository, not just this shared
+workflow repository. The issuer is `https://token.actions.githubusercontent.com`
+and the audience is `api://AzureADTokenExchange`. CI has no GitHub environment,
+so its publishing push jobs use branch-based subjects: configure trust for
+the permitted feature, release, and hotfix branches, using exact credentials
+or an approved flexible credential. CD uses the selected GitHub environment's
+subject, including a separate `epreprod` deployment job. Match the actual
+OIDC subject format emitted by the repository, including immutable repository
+and owner IDs if enabled. Environment deployment rules should restrict which
+branches can deploy to each target. This repository change does not create
+Azure federated credentials or assign Azure permissions.
+
+CI needs ACR push/pull access; ACA's managed identity needs pull access.
+The CD principal needs target app management and permission to assign the
+configured user-assigned identity. Never commit identity values or tokens.
 
 `ACA_ENVIRONMENT` is the Azure managed environment name, not the GitHub
 environment name. `IMAGE_TAG`, digest/reference metadata, and `GITHUB_OUTPUT`
