@@ -81,7 +81,7 @@ app URL. The existing checks and gates run after this deploy step, as in the
 GitLab example. A failing check blocks the next pipeline stage but does not
 automatically roll back the label swap.
 
-The CI and CD callers reference `@v1.0.4a`. Configure these values in GitHub
+The CI and CD callers reference `@v1.0.5a`. Configure these values in GitHub
 settings rather than committing their values:
 
 | Reusable CI input | Application repository variable | Purpose |
@@ -131,7 +131,13 @@ for each target to avoid falling back to CI values.
 
 No client secret or `AZURE_CREDENTIALS` JSON is used. Both callers and reusable
 workflows grant `id-token: write` and callers use `secrets: inherit`.
-`azure/login@v2` requests the temporary token and exchanges it with Azure.
+The inline Bash login requests a temporary OIDC token from GitHub with
+`curl`, extracts it with `jq`, masks it in the Actions log, then runs
+`az login --service-principal --federated-token` and
+`az account set --subscription`. This branch uses the GitLab-style CLI
+approach instead of the `azure/login` action. The token stays in the login
+step; do not save it as a secret or artifact. The hosted Ubuntu runner must
+provide `curl`, `jq`, and Azure CLI.
 The subsequent `az acr login --name "$ACR_NAME"` in CI authenticates Docker
 to ACR using that Azure session.
 
