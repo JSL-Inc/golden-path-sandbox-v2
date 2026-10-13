@@ -16,6 +16,10 @@ memory="${ACA_MEMORY:-1Gi}"
 
 az extension add --name containerapp --upgrade --only-show-errors
 
+echo "Azure tooling versions:"
+az version
+az extension show --name containerapp --query version --output tsv
+
 if az containerapp show --name "$app" --resource-group "$group" >/dev/null 2>&1; then
   az containerapp ingress enable --name "$app" --resource-group "$group" \
     --type external --target-port "$port"
@@ -26,6 +30,11 @@ else
     --user-assigned "$identity" --cpu "$cpu" --memory "$memory" \
     --ingress external --target-port "$port" --revisions-mode labels --target-label main
 fi
+
+echo "Container App state before main-label initialization:"
+az containerapp show --name "$app" --resource-group "$group" \
+  --query 'properties.{mode:configuration.activeRevisionsMode,targetLabel:configuration.targetLabel,traffic:configuration.ingress.traffic}' \
+  --output json
 
 main_revision="$(az containerapp show --name "$app" --resource-group "$group" \
   --query "properties.configuration.ingress.traffic[?label=='main'].revisionName | [0]" --output tsv)"
