@@ -20,15 +20,38 @@ echo "Azure tooling versions:"
 az version
 az extension show --name containerapp --query version --output tsv
 
+# Azure can return before the new revision is ready and its label is assigned.
+wait_for_label() {
+  local label="$1" revision="${2:?Azure did not return a revision name}"
+  for attempt in {1..60}; do
+    if az containerapp show --name "$app" --resource-group "$group" \
+      --query 'properties.{ready:latestReadyRevisionName,traffic:configuration.ingress.traffic}' \
+      --output json | jq -e --arg label "$label" --arg revision "$revision" \
+      '.ready == $revision and any(.traffic[]?; .label == $label and .revisionName == $revision)' >/dev/null; then
+      return 0
+    fi
+    echo "Waiting for $label to point to ready revision $revision ($attempt/60)"
+    sleep 5
+  done
+  echo "::error::Timed out waiting for label $label on revision $revision."
+  az containerapp revision show --name "$app" --resource-group "$group" \
+    --revision "$revision" \
+    --query 'properties.{provisioning:provisioningState,health:healthState,running:runningState,details:runningStateDetails}' \
+    --output json
+  return 1
+}
+
 if az containerapp show --name "$app" --resource-group "$group" >/dev/null 2>&1; then
   az containerapp ingress enable --name "$app" --resource-group "$group" \
     --type external --target-port "$port"
 else
-  az containerapp create --name "$app" --resource-group "$group" \
+  created_revision="$(az containerapp create --name "$app" --resource-group "$group" \
     --environment "$aca_environment" --image "$image" --command "$startup" \
     --registry-server "$registry" --registry-identity "$identity" \
     --user-assigned "$identity" --cpu "$cpu" --memory "$memory" \
-    --ingress external --target-port "$port" --revisions-mode labels --target-label main
+    --ingress external --target-port "$port" --revisions-mode labels --target-label main \
+    --query properties.latestRevisionName --output tsv)"
+  wait_for_label main "$created_revision"
 fi
 
 echo "Container App state before main-label initialization:"
@@ -45,9 +68,10 @@ if [[ -z "$main_revision" || "$main_revision" == "None" ]]; then
     --label main --revision "$latest_revision"
 fi
 
-az containerapp update --name "$app" --resource-group "$group" \
+staging_revision="$(az containerapp update --name "$app" --resource-group "$group" \
   --image "$image" --command "$startup" --cpu "$cpu" --memory "$memory" \
-  --target-label staging
+  --target-label staging --query properties.latestRevisionName --output tsv)"
+wait_for_label staging "$staging_revision"
 az containerapp revision label swap --name "$app" --resource-group "$group" \
   --source staging --target main
 
