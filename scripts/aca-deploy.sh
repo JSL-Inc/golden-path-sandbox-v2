@@ -24,7 +24,7 @@ else
     --environment "$aca_environment" --image "$image" --command "$startup" \
     --registry-server "$registry" --registry-identity "$identity" \
     --user-assigned "$identity" --cpu "$cpu" --memory "$memory" \
-    --ingress external --target-port "$port" --revisions-mode labels
+    --ingress external --target-port "$port" --revisions-mode labels --target-label main
 fi
 
 main_revision="$(az containerapp show --name "$app" --resource-group "$group" \
