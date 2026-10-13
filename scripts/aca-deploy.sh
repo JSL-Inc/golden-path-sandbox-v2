@@ -75,11 +75,6 @@ wait_for_label staging "$staging_revision"
 az containerapp revision label swap --name "$app" --resource-group "$group" \
   --source staging --target main
 
-az containerapp identity assign --name "$app" --resource-group "$group" \
-  --user-assigned "$identity"
-az containerapp registry set --name "$app" --resource-group "$group" \
-  --server "$registry" --identity "$identity"
-
 fqdn="$(az containerapp show --name "$app" --resource-group "$group" \
   --query properties.configuration.ingress.fqdn --output tsv)"
 echo "application_url=https://$fqdn" >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"

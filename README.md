@@ -76,10 +76,18 @@ The branch route picks a GitHub environment and its app settings:
 
 For each environment, `aca-deploy.sh` creates the app if absent, or enables
 ingress on the existing app. It makes sure there is a `main` revision label,
-updates the image on `staging`, swaps `staging` and `main`, then reports the
-app URL. The existing checks and gates run after this deploy step, as in the
+updates the image on `staging`, waits for the expected revision to be ready
+and labeled, swaps `staging` and `main`, then reports the app URL. Creation
+also waits for the initial `main` label. Each wait retries 60 times at five-second
+intervals and fails with revision diagnostics if readiness does not complete. The existing checks and gates run after this deploy step, as in the
 GitLab example. A failing check blocks the next pipeline stage but does not
 automatically roll back the label swap.
+
+App creation configures the user-assigned identity and ACR registry access.
+Existing apps must already have the configured `ACA_UAMI_RESOURCE_ID` assigned
+and selected as the pull identity for the image's registry. Changes to an
+existing app's identity or registry settings are handled during Azure setup,
+rather than repeated after every label swap.
 
 The CI and CD callers reference `@personal-sp-test`. Configure these values in GitHub
 settings rather than committing their values:
