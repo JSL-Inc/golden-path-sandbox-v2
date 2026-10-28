@@ -1,0 +1,96 @@
+name: Standalone Azure and ACR Pack build test
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Linux runner label
+        type: string
+        default: arc-runner-set
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    env:
+      ACR_NAME: ${{ vars.ACR_NAME }}
+      ACR_IMAGE_REPOSITORY: ${{ vars.ACR_IMAGE_REPOSITORY || 'python-test-app' }}
+      PACK_IMAGE: ${{ vars.PACK_IMAGE }}
+      PAKETO_BUILDER_IMAGE: ${{ vars.PAKETO_BUILDER_IMAGE }}
+    steps:
+      - name: Check out this application's source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check configuration and tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ACR_NAME:?Set repository variable ACR_NAME}"
+          : "${PACK_IMAGE:?Set repository variable PACK_IMAGE}"
+          : "${PAKETO_BUILDER_IMAGE:?Set repository variable PAKETO_BUILDER_IMAGE}"
+          command -v docker
+          command -v tar
+          for image in "$PACK_IMAGE" "$PAKETO_BUILDER_IMAGE"; do
+            if [[ "$image" != "$ACR_NAME.azurecr.io/"* ]]; then
+              echo '::error::Pack and builder images must use the configured ACR.'
+              exit 1
+            fi
+          done
+
+      - name: Ensure Azure CLI is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v az >/dev/null 2>&1; then
+            curl -fsSL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          fi
+          az version
+
+      - name: Log in to Azure using the federated service principal
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR using a writable Docker config
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export DOCKER_CONFIG="$RUNNER_TEMP/aca-docker-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$DOCKER_CONFIG"
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
+          az acr login --name "$ACR_NAME"
+
+      - name: Build and publish Python image with Pack
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$DOCKER_CONFIG/config.json"
+          docker info >/dev/null
+          IMAGE_TAG="$ACR_NAME.azurecr.io/$ACR_IMAGE_REPOSITORY:standalone-${GITHUB_SHA:0:8}-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+
+          # These files are copied through Docker; no runner file bind mounts.
+          staging="$(mktemp -d "$RUNNER_TEMP/aca-build.XXXXXXXX")"
+          trap 'docker rm -fv "${pack_container:-}" >/dev/null 2>&1 || true; rm -rf "$staging"' EXIT
+          mkdir -p "$staging/workspace" "$staging/root/.docker"
+          tar --exclude=.git --exclude=.docker --exclude=.ci-state \
+            --exclude=docker-config.json --exclude=build.env \
+            -cf - . | tar -xf - -C "$staging/workspace"
+          cp "$DOCKER_CONFIG/config.json" "$staging/root/.docker/config.json"
+
+          docker pull "$PACK_IMAGE"
+          pack_container="$(docker create \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -w /workspace \
+            "$PACK_IMAGE" build "$IMAGE_TAG" \
+              --builder "$PAKETO_BUILDER_IMAGE" \
