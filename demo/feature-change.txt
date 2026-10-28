@@ -1,0 +1,2 @@
+Prepared feature change for the September-format walkthrough.
+This snapshot demonstrates CI and the CD handoff without a cloud deployment.
