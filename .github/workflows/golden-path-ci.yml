@@ -1,30 +1,27 @@
 name: Golden Path CI
-
 on:
   pull_request:
+    branches: [release-eqa-demo-quality-20261028]
     types: [opened, reopened, synchronize, ready_for_review]
   push:
-    branches:
-      - "develop-*"
-      - "feature-*"
-      - "release-*"
-      - "hotfix-*"
-      - main
-
+    branches: [feature-eint1-f91028, feature-eint2-f91029]
+  workflow_dispatch:
+    inputs:
+      run_artifactory:
+        description: Perform a REAL Artifactory upload/download using configured demo credentials
+        type: boolean
+        default: false
 permissions:
   id-token: write
   contents: read
   code-quality: write
-
 concurrency:
-  group: golden-path-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: quality-demo-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 jobs:
   ci:
     name: CI
-    if: github.event_name != 'push' || github.event.created == false
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@v1.0.5a
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@e6f370b267e9d2efadcd8cfd51d8d33f1644f6ae
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
@@ -33,13 +30,34 @@ jobs:
         ruff check testing
         ruff format --check testing
       coverage_language: python
-      artifact_type: container
-      acr_name: ${{ vars.ACR_NAME }}
-      image_repository: ${{ vars.ACR_IMAGE_REPOSITORY }}
-      pack_image: ${{ vars.PACK_IMAGE }}
-      paketo_builder_image: ${{ vars.PAKETO_BUILDER_IMAGE }}
-      paketo_run_image: ${{ vars.PAKETO_RUN_IMAGE }}
-      container_build_command: bash scripts/aca-build.sh
-      publish_artifact: ${{ github.event_name == 'push' && (startsWith(github.ref_name, 'feature-') || startsWith(github.ref_name, 'release-') || startsWith(github.ref_name, 'hotfix-')) }}
+      artifact_type: package
+      publish_artifact: true
       artifact_name: application-package
-    secrets: inherit
+  artifact_evidence:
+    name: Artifact integration evidence
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: application-package
+          path: built-output
+      - name: Package preview or explicitly requested real round trip
+        uses: JSL-Inc/golden-path-workflows-v2/.github/actions/artifactory-evidence@e6f370b267e9d2efadcd8cfd51d8d33f1644f6ae
+        with:
+          mode: ${{ github.event_name == 'workflow_dispatch' && inputs.run_artifactory && 'roundtrip' || 'preview' }}
+          source-path: built-output
+          output-path: artifactory-evidence
+          application-id: golden-path-demo
+          repository: ${{ vars.DEMO_ARTIFACTORY_REPOSITORY || 'demo-packages' }}
+          url: ${{ vars.DEMO_ARTIFACTORY_URL }}
+          token: ${{ github.event_name == 'workflow_dispatch' && inputs.run_artifactory && secrets.DEMO_ARTIFACTORY_TOKEN || '' }}
+      - name: Retain integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-integration-evidence
+          path: artifactory-evidence/
+          if-no-files-found: warn

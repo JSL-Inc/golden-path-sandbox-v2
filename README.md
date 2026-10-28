@@ -1,3 +1,10 @@
+# Quality and Artifactory rehearsal
+
+Start with [the seven-minute presenter guide](docs/DEMO.md) and [prepared links](docs/DEMO-LINKS.md).
+This isolated branch is based on `v1.0.5a`. The original README below describes the baseline, not this demo's execution status.
+
+---
+
 # Golden Path Sandbox v2
 
 Runnable demonstration application for the centralized golden-path proof of
