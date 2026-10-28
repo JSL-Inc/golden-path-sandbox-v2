@@ -93,4 +93,11 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -w /workspace \
             "$PACK_IMAGE" build "$IMAGE_TAG" \
-              --builder "$PAKETO_BUILDER_IMAGE" \
+            --builder "$PAKETO_BUILDER_IMAGE" \
+            --env 'BP_CPYTHON_VERSION=3.12.*' \
+            --env 'BP_CPYTHON_START_COMMAND=python -m opentelemetry.instrumentation.auto_instrumentation uvicorn main:app --host 0.0.0.0 --port 8080' \
+            --pull-policy always \
+            --publish)"
+          
+          docker cp "$staging/." "$pack_container:/"
+          docker start --attach "$pack_container"
