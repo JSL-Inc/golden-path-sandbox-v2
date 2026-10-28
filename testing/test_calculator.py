@@ -6,4 +6,5 @@ def test_add() -> None:
 
 
 def test_subtract() -> None:
-    assert subtract(5, 3) == 2
+    # DEMO ONLY: intentionally wrong expected result for the failure example.
+    assert subtract(5, 3) == 3
