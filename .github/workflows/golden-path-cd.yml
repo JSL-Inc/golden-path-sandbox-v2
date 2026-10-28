@@ -1,0 +1,27 @@
+name: Golden Path CD
+
+on:
+  push:
+    branches: [feature-eint1-f91028, feature-eint2-f91029]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  actions: read
+  contents: write
+  pull-requests: read
+
+jobs:
+  delivery:
+    name: Delivery
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-cd.yml@a5648a400d82708dbecb5221a532714e9d3a078d
+    with:
+      # Run the actual plan, CI success check and artifact retrieval; stop before delivery.
+      execute_delivery: false
+      # This rehearsal consumes the package actually produced by its CI.
+      # The original ACA caller uses container descriptors; see docs/demo-reference/.
+      artifact_type: package
+      deployment_provider: azure-container-apps
+      deploy_command: bash scripts/aca-deploy.sh
+      production_verify_command: bash scripts/production-verify.sh
+    secrets: inherit

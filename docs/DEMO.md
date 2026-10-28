@@ -1,97 +1,101 @@
-# Seven-minute Golden Path rehearsal
+# Seven-minute Golden Path rehearsal: CI → CD → controlled progression
 
-Start with [the prepared links](DEMO-LINKS.md). Open the tabs before presenting;
-do not wait for a whole pipeline or merge branches during the demo.
+Start with [the prepared links](DEMO-LINKS.md). Open the successful CI run, the
+Golden Path CD graph, the release ruleset, and the artifact evidence before presenting.
+Keep completed runs open so the demo does not depend on finishing every merge.
 
-This branch starts at `v1.0.5a`, commit
-`286454eab509ee63641890a2ea5cd31289e8f5bf`. That personal version is closest to
-the recent ACA implementation inspected. Original branches and settings are unchanged.
+The base is `v1.0.5a` (`286454eab509ee63641890a2ea5cd31289e8f5bf`).
+Both `golden-path-ci.yml` and `golden-path-cd.yml` are active in this rehearsal.
+Original branches and repository settings are unchanged.
 
 ## Presenter sequence
 
-| Time | Screen/action | What to get across |
+| Time | Screen/action | High-level explanation |
 |---|---|---|
-| 0:00–0:30 | Quality evidence ready PR | “The earlier demo showed the branch and promotion flow. Today I'm focusing on quality evidence, governance, and the artifact integration work.” |
-| 0:30–1:45 | Ready CI summary; optionally Re-run all jobs | “The shared workflow runs the checks and keeps their reports. A successful check needs evidence that can be reviewed.” Use the completed run while the rerun starts. |
-| 1:45–2:45 | Missing-evidence PR → Validate test reports | “The unit tests still pass, but the required report is absent. The pipeline catches that missing evidence.” No need to replay branch naming. |
-| 2:45–3:45 | Release ruleset → ready PR's Promotion Gate | “Checks provide results; rules determine which results are needed to merge. Passing CI does not supply environment-delivery evidence.” Show the deliberate stop before INT delivery. |
-| 3:45–5:45 | Artifact integration evidence summary and metadata | “The Artifactory integration shape is package, identify the tested commit, publish, and retrieve the same output.” Inspect the package/metadata. Explicitly read the external result: preview says Not run; only a real completed round trip says Passed. |
-| 5:45–6:30 | Original quality diagram, or mapping below | “This connects quality requirements to actual checks, retained evidence, and points where progression is controlled.” Use the diagram's exact wording. |
-| 6:30–7:00 | ACA reference caller, only if helpful | “Work has also gone into ACA through ACR as the primary container path. End-to-end deployment validation is still in progress.” Stop there. |
+| 0:00–0:30 | Ready PR and workflow files | “The previous demo covered the branch/promotion flow. This time I'll follow the output from CI into CD, show the artifact integration work, and connect the checkpoints to quality governance.” |
+| 0:30–1:15 | Completed CI summary | “The shared CI workflow builds, checks, and keeps the output and test evidence.” Don't repeat the full unit-test/branch-naming demonstration. |
+| 1:15–3:15 | **Golden Path CD run graph** | “CD selects the target environment, requires successful CI for this same change, and retrieves that CI output.” Open Determine Delivery Plan, CI Success Gate, and Resolve Validated Artifact. These are real jobs from the reusable CD implementation. |
+| 3:15–4:45 | Artifact integration evidence and Artifactory helper | “The Artifactory integration shape is package, identify the source, publish, and retrieve the output.” Show the actual local package/metadata and distinguish preview from any real service run. This rehearsal's CD retrieves from GitHub Actions; it is not an Artifactory download. |
+| 4:45–6:15 | Release ruleset, Promotion Gate and original quality diagram | “CI evidence, environment qualification, and merge requirements are separate checkpoints.” Connect the checks to the original diagram using its exact phase names. Show why the PR is not qualified for promotion merely because CI passed. |
+| 6:15–7:00 | CD's explicit stop, then ACA caller/configuration briefly | “I've also worked on ACA through ACR as the primary container delivery path. End-to-end validation is still in progress. Here, deployment and later tests are deliberately not run.” |
 
-For five minutes, combine the first two CI examples into one minute and connect
-the diagram while showing the ruleset. Keep the Artifactory explanation.
+For five minutes, use 30 seconds for CI, 90 seconds for CD, 90 seconds for
+Artifactory, and one minute for governance, with a brief opening and ACA update.
+The missing-report example is optional background, not the main storyline.
 
-## Optional live edit, without merging
+## What Golden Path CD really runs
 
-The missing-evidence PR changes only `scripts/unit-test.sh`: it deletes the
-JUnit report after successful tests. Edit that file on `feature-eint2-f91029`,
-remove the final two demo-only lines, and commit to that branch. CI reruns;
-the Promotion Gate still stops delivery. Do not merge. If queued, switch to
-the prepared successful PR and return to the new run at the end.
+The active caller invokes the actual `reusable-standard-cd.yml`, pinned to a
+commit. The rehearsal adds one input, `execute_delivery: false`, so the existing
+route, exact-commit CI lookup, download, and artifact validation run. Deployment,
+environment tests, INT/QA/ePreProd gates, production verification, and release
+creation are skipped. Their original implementation remains visible in the graph.
+
+A final review job explicitly stops the run with a failure annotation. This is
+an expected rehearsal boundary, not an Azure failure. The CD run must not become
+successful environment-delivery evidence. The separate required Promotion Gate
+continues to fail because no real successful INT Gate exists for this commit.
+
+This rehearsal consumes the package its CI actually produces. It does not invent
+a container descriptor or an ACR image. The original ACA caller, retained in
+`docs/demo-reference/golden-path-cd.yml`, uses the container/ACA configuration.
+Changing to real ACA delivery requires a real container artifact and service configuration.
+
+## Optional live interaction
+
+Rerun Golden Path CD on the ready feature branch from the prepared run's menu;
+its existing CI run supplies the same-commit artifact. While it runs, show the
+completed CD graph and ruleset. No merge is needed.
+
+Alternatively repair the missing-evidence PR: remove the final two demo-only
+lines from `scripts/unit-test.sh` on `feature-eint2-f91029` and commit there.
+CI and CD rerun. CI must produce the report before CD can retrieve its output.
+The actual deployment and the promotion qualification remain stopped.
+Use the prepared ready runs if the new jobs are still queued. Leave both PRs unmerged.
 
 ## Connection to quality phases
 
 | Discussion area | Actual evidence |
 |---|---|
 | Change/PR controls | Source/target checks and the current release ruleset |
-| Build quality | Build, tests, lint, coverage, required JUnit/Cobertura reports |
-| Artifact handling | Local package, tested commit metadata, checksum; external publication/retrieval only if executed |
-| Environment qualification | Stop because this commit has no successful INT delivery evidence |
-| Release/production | Existing design only; not executed here |
+| Build quality | Real build/test/lint results and JUnit/Cobertura files |
+| CI-to-CD handoff | Same-commit CI success, target selection, and real artifact retrieval |
+| Artifact integration | Local package/metadata/checksum; external Artifactory only if a real round trip was run |
+| Environment qualification | Existing INT/QA/ePreProd checks shown as not run, and promotion remains unqualified |
+| Release/production | Existing design visible; not executed |
 
-These are discussion areas, not invented labels for the original diagram or
-a claim that every quality requirement has been implemented.
+These areas do not replace the exact labels in the original quality diagram.
+The earlier demo already included reusable workflows, governance, and promotion
+concepts; do not present all of those as newly introduced.
 
-## What is existing work versus rehearsal scaffolding
+## Scope and limitations
 
-Existing baseline: shared CI, build/test/lint commands, report validation,
-80% coverage in the app's test command, package evidence, branch checks,
-promotion design, and ACA/ACR scripts/configuration. Do not call all of these new.
+Added for this rehearsal: prepared PR cases, isolated triggers, the explicit
+CD execution switch/review stop, the Artifactory preview/round-trip adapter,
+and this guide. They are rehearsal scaffolding, not earlier completed enterprise work.
 
-Added for this rehearsal: prepared PR cases, isolated triggers, an Artifactory
-preview/round-trip helper, and a shortened delivery evidence check that stops
-immediately rather than waiting for a deployment. The personal versions inspected
-do not contain the enterprise Artifactory code from the supplied comparison.
-This new helper reconstructs its generic integration shape; it is not a verified
-copy of that implementation and must not be presented as earlier completed work.
+The personal versions inspected do not contain the enterprise Artifactory code
+shown in the supplied comparison. The new helper reconstructs its generic shape;
+it is not a verified copy. The normal run says **external Artifactory: Not run**.
+GitHub Actions stores the preview evidence, and CD retrieves the CI package from
+GitHub Actions. ACR remains the intended registry for ACA images.
 
-GitHub Actions retains preview evidence. That is not an Artifactory upload.
-Neither artifact store supplies ACA's image here; the intended image registry is ACR.
-
-## Governance facts to state accurately
+## Governance facts
 
 The active [release ruleset](https://github.com/JSL-Inc/golden-path-sandbox-v2/rules/22672084)
-targets `release-*` and requires `CI / Standard CI` and `Promotion Gate`.
-It currently requires **zero approving reviews**, and the repository owner has
-an always-bypass entry. Several older rulesets are disabled. These personal
-settings do not prove enterprise review policy or independent approval.
-
-The demo base starts with `release-`, so this ruleset applies. The failed required
-check is visible; an authorized bypass remains possible. Do not merge, enable
-auto-merge, or demonstrate a bypass. No ruleset settings are changed here.
+targets `release-*` and requires `CI / Standard CI` plus `Promotion Gate`.
+It currently requires **zero approving reviews** and permits owner bypass.
+Several older rulesets are disabled. State those personal settings accurately;
+they do not prove enterprise approval policy. The demo base is covered by the
+release rule. No ruleset settings were changed. Do not merge or use bypass.
 
 ## Optional real Artifactory run
 
-Preview needs no credentials. For a separate demo Artifactory service, configure
-variables `DEMO_ARTIFACTORY_URL` (HTTPS base ending in `/artifactory`) and
-`DEMO_ARTIFACTORY_REPOSITORY` (existing generic repository), plus Actions secret
-`DEMO_ARTIFACTORY_TOKEN` with upload/read permissions limited to that repository.
-Do not move enterprise credentials into the public sandbox.
-
-Dispatch `golden-path-ci.yml` with the ready feature branch as ref and
-`run_artifactory=true`. It uploads to a run-specific location, retrieves the
-package and metadata, and validates identity/checksum. If the UI does not expose
-branch dispatch, use the workflow-dispatch API with that ref. A failure remains
-failed. Ordinary PR runs always use local preview mode.
-
-The helper's tests use an in-memory transport; they are not live service proof.
-Server retention and overwrite policies are separate from checksum validation.
-See [shared rehearsal notes](https://github.com/JSL-Inc/golden-path-workflows-v2/blob/demo/quality-artifactory-20261028/docs/demo-notes.md).
-
-## Boundaries
-
-No merge, tag, release, Azure login, deployment, rollback, or DAST scan is
-performed by these rehearsal workflows. Original delivery and release-related
-callers are retained under `docs/demo-reference/` for inspection. Their presence
-is not execution evidence. Shared rehearsal code is pinned to a commit.
+For a separate demo service, configure variables `DEMO_ARTIFACTORY_URL`
+(HTTPS base ending in `/artifactory`) and `DEMO_ARTIFACTORY_REPOSITORY`,
+plus secret `DEMO_ARTIFACTORY_TOKEN` with upload/read access.
+Dispatch `golden-path-ci.yml` on the ready branch with `run_artifactory=true`.
+Only a completed real upload/download/checksum verification proves that service
+round trip. Ordinary PR runs are local previews. A real Artifactory run does not
+change the demonstrated CD package provider or prove ACA deployment.
+The helper tests use in-memory transport and do not prove live service access.

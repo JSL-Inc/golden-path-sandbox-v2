@@ -21,7 +21,7 @@ concurrency:
 jobs:
   ci:
     name: CI
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@e6f370b267e9d2efadcd8cfd51d8d33f1644f6ae
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@a5648a400d82708dbecb5221a532714e9d3a078d
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
@@ -45,7 +45,7 @@ jobs:
           name: application-package
           path: built-output
       - name: Package preview or explicitly requested real round trip
-        uses: JSL-Inc/golden-path-workflows-v2/.github/actions/artifactory-evidence@e6f370b267e9d2efadcd8cfd51d8d33f1644f6ae
+        uses: JSL-Inc/golden-path-workflows-v2/.github/actions/artifactory-evidence@a5648a400d82708dbecb5221a532714e9d3a078d
         with:
           mode: ${{ github.event_name == 'workflow_dispatch' && inputs.run_artifactory && 'roundtrip' || 'preview' }}
           source-path: built-output
