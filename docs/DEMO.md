@@ -1,27 +1,58 @@
-# Seven-minute Golden Path rehearsal: CI → CD → controlled progression
+# Golden Path demo — September format, updated
 
-Start with [the prepared links](DEMO-LINKS.md). Open the successful CI run, the
-Golden Path CD graph, the release ruleset, and the artifact evidence before presenting.
-Keep completed runs open so the demo does not depend on finishing every merge.
+Follow the September outline: repository orientation, prepared success
+walkthrough, one live PR interaction, and one failure/governance example.
+The September demo never happened; compare redundancy against the last
+actual demonstration, rather than treating the September plan as already shown.
 
-The base is `v1.0.5a` (`286454eab509ee63641890a2ea5cd31289e8f5bf`).
-Both `golden-path-ci.yml` and `golden-path-cd.yml` are active in this rehearsal.
-Original branches and repository settings are unchanged.
+Start with [prepared PRs and runs](DEMO-LINKS.md).
 
-## Presenter sequence
+## Seven-minute sequence
 
-| Time | Screen/action | High-level explanation |
+| Time | Section | What to show and explain |
 |---|---|---|
-| 0:00–0:30 | Ready PR and workflow files | “The previous demo covered the branch/promotion flow. This time I'll follow the output from CI into CD, show the artifact integration work, and connect the checkpoints to quality governance.” |
-| 0:30–1:15 | Completed CI summary | “The shared CI workflow builds, checks, and keeps the output and test evidence.” Don't repeat the full unit-test/branch-naming demonstration. |
-| 1:15–3:15 | **Golden Path CD run graph** | “CD selects the target environment, requires successful CI for this same change, and retrieves that CI output.” Open Determine Delivery Plan, CI Success Gate, and Resolve Validated Artifact. These are real jobs from the reusable CD implementation. |
-| 3:15–4:45 | Artifact integration evidence and Artifactory helper | “The Artifactory integration shape is package, identify the source, publish, and retrieve the output.” Show the actual local package/metadata and distinguish preview from any real service run. This rehearsal's CD retrieves from GitHub Actions; it is not an Artifactory download. |
-| 4:45–6:15 | Release ruleset, Promotion Gate and original quality diagram | “CI evidence, environment qualification, and merge requirements are separate checkpoints.” Connect the checks to the original diagram using its exact phase names. Show why the PR is not qualified for promotion merely because CI passed. |
-| 6:15–7:00 | CD's explicit stop, then ACA caller/configuration briefly | “I've also worked on ACA through ACR as the primary container delivery path. End-to-end validation is still in progress. Here, deployment and later tests are deliberately not run.” |
+| 0:00–0:45 | Overall | Briefly show the application callers and central CI/CD workflows. Explain ownership without touring every file. |
+| 0:45–2:45 | Prepared success walkthrough | Explain develop → feature/INT → release/QA and optional ePreProd using completed evidence. Keep Golden Path CD central: environment selection, same-commit CI gate, artifact retrieval, then downstream qualification. Show later stages as configured rather than executed where evidence is absent. |
+| 2:45–4:15 | Artifactory addition | Show the actual work integration configuration and service evidence if available. Explain identification and downstream retrieval. The personal rehearsal has only a local preview; label it. ACR remains the intended ACA image registry. |
+| 4:15–5:45 | Live PR interaction | Inspect PR #69 and mark the prepared draft ready for review, or rerun CI. Show the resulting checks and feedback. Keep completed results available while jobs queue. Leave it unmerged. |
+| 5:45–7:00 | One failure and governance | Show one relevant failed check and its effect on the required results/ruleset. PR #70 is an explicitly staged missing-report example; an actual regression failure from work is also useful if its run is available. Connect this to the original quality diagram. |
+| 7:00–7:15 | Status | Briefly acknowledge work toward ACA through ACR as the primary container path; end-to-end validation remains in progress. |
 
-For five minutes, use 30 seconds for CI, 90 seconds for CD, 90 seconds for
-Artifactory, and one minute for governance, with a brief opening and ACA update.
-The missing-report example is optional background, not the main storyline.
+For five minutes, shorten orientation and the prepared branch walkthrough.
+Keep CD, Artifactory, PR/governance feedback, and the status statement.
+Multiple failure cases, feature tagging, and historical releases are backup tabs.
+
+## Keep the September event matrix
+
+Use this to navigate, not as a list of newly delivered capabilities.
+
+| Stage | Push/prepared evidence | PR results | Post-merge progression |
+|---|---|---|---|
+| Develop → feature | Build/test CI | Applicable CI, warning-period feedback, policy results | Feature environment and INT qualification |
+| Feature → release | Prior evidence for the same change | Applicable CI/security results and required promotion results | QA, optional ePreProd, feature tag if configured |
+| Release → main | Validated release candidate | Release requirements and SemVer label | Production/release path; do not claim execution without a real run |
+
+Check the actual current event and result on every example. The September
+outline includes Golden Path Warning Period and CodeQL; they are not wired
+into the new personal rehearsal branch. Use a real current work PR/run to
+demonstrate them, or state their status. The local artifact preview is not
+a replacement for that warning workflow or a security scan.
+
+## Prepared evidence versus live interaction
+
+- PR #69 has real CI and CD handoff evidence. CD's plan, same-commit CI gate,
+  and artifact retrieval passed. Deployment and qualification gates did not run.
+- The final artificial CD stop is a rehearsal boundary, not the product-failure
+  example to spend time demonstrating.
+- PR #70 deliberately removes a required report after tests pass. It can be
+  repaired live without a merge. Show only one failure example.
+- Historical releases and tags do not prove the current chain works end to end.
+- Use the original quality diagram's exact phase names when connecting checks,
+  evidence, and enforcement; do not invent labels.
+
+Prepared post-merge runs carry the progression so the live segment does not
+depend on a chain of merges. The earlier actual demo already covered some
+branching, governance, and reusable workflow concepts; keep those brief.
 
 ## What Golden Path CD really runs
 
