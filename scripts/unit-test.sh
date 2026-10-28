@@ -7,3 +7,6 @@ python -m pytest testing \
   --cov=testing.calculator \
   --cov-fail-under=80 \
   --cov-report=xml:reports/coverage/cobertura.xml
+
+# DEMO ONLY: remove the required evidence after passing tests; delete these two lines to repair.
+rm reports/junit/results.xml
