@@ -1,0 +1,13 @@
+name: Golden Path Warning Period
+on:
+  pull_request:
+    branches: [feature-eint4-f9241, release-epreprod-demo-20261028, release-eqa-demo-quality-20261028]
+    types: [opened, reopened, synchronize, ready_for_review]
+permissions:
+  checks: read
+  contents: read
+  pull-requests: write
+  statuses: read
+jobs:
+  warning:
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/warning-period.yml@5a44961adfc91267f6a1a868245cf4d6b17d7b27

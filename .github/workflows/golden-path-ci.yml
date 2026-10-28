@@ -1,10 +1,10 @@
 name: Golden Path CI
 on:
   pull_request:
-    branches: [release-eqa-demo-quality-20261028]
+    branches: [feature-eint4-f9241, release-epreprod-demo-20261028, release-eqa-demo-quality-20261028]
     types: [opened, reopened, synchronize, ready_for_review]
   push:
-    branches: [feature-eint1-f91028, feature-eint2-f91029]
+    branches: [develop-s9241, feature-eint4-f9241, feature-eint5-f9242, feature-eint6-f9243, release-epreprod-demo-20261028, feature-eint1-f91028, feature-eint2-f91029]
   workflow_dispatch:
     inputs:
       run_artifactory:
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   ci:
     name: CI
-    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@a5648a400d82708dbecb5221a532714e9d3a078d
+    uses: JSL-Inc/golden-path-workflows-v2/.github/workflows/reusable-standard-ci.yml@5a44961adfc91267f6a1a868245cf4d6b17d7b27
     with:
       prepare_command: python -m pip install -r requirements.txt
       build_command: bash scripts/build.sh
@@ -45,7 +45,7 @@ jobs:
           name: application-package
           path: built-output
       - name: Package preview or explicitly requested real round trip
-        uses: JSL-Inc/golden-path-workflows-v2/.github/actions/artifactory-evidence@a5648a400d82708dbecb5221a532714e9d3a078d
+        uses: JSL-Inc/golden-path-workflows-v2/.github/actions/artifactory-evidence@5a44961adfc91267f6a1a868245cf4d6b17d7b27
         with:
           mode: ${{ github.event_name == 'workflow_dispatch' && inputs.run_artifactory && 'roundtrip' || 'preview' }}
           source-path: built-output

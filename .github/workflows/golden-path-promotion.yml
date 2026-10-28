@@ -1,7 +1,7 @@
 name: Golden Path Promotion
 on:
   pull_request:
-    branches: [release-eqa-demo-quality-20261028]
+    branches: [release-eqa-demo-quality-20261028, release-epreprod-demo-20261028]
     types: [opened, reopened, synchronize, ready_for_review]
 permissions:
   contents: read
