@@ -1,0 +1,128 @@
+            const allFinished = requiredMatches.every(matches =>
+              matches.length > 0 && matches.every(check => !isRunning(check)));
+            const allRulesetsPresent = rulesetChecks.every(target => findMatches(target).length > 0);
+            const allRulesetsFinished = rulesetMatches.every(check => !isRunning(check));
+            const failureConclusions = new Set([
+              'action_required', 'cancelled', 'failure', 'startup_failure', 'stale', 'timed_out'
+            ]);
+
+            const results = targets.map(target => {
+              const matches = findMatches(target);
+              if (matches.length === 0) return {
+                ...target, state: 'missing', result: '— Not yet reported',
+                details: 'No matching check run found'
+              };
+              const failing = matches.filter(check => failureConclusions.has(check.conclusion));
+              const running = matches.filter(isRunning);
+              const successful = matches.filter(check => check.conclusion === 'success');
+              if (failing.length) return {
+                ...target, state: 'failing', result: '❌ Failing', details: getUniqueNames(failing)
+              };
+              if (running.length) return {
+                ...target, state: 'pending', result: '⏳ Pending', details: getUniqueNames(running)
+              };
+              if (successful.length) return {
+                ...target, state: 'passing', result: '✅ Passing', details: getUniqueNames(successful)
+              };
+              return {
+                ...target, state: 'skipped', result: '⚪ Skipped or neutral', details: getUniqueNames(matches)
+              };
+            });
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pullRequestNumber, per_page: 100
+            });
+            const existing = comments
+              .filter(comment => comment.user?.type === 'Bot' && comment.body?.includes(marker))
+              .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+
+            let coverageStatus = process.env.COVERAGE_STATUS || 'missing';
+            let coverageDetail = process.env.COVERAGE_DETAIL || 'CI coverage result unavailable';
+            let coverage = process.env.COVERAGE_PCT !== ''
+              ? Number(process.env.COVERAGE_PCT) : null;
+            const coverageSupplied = process.env.COVERAGE_SUPPLIED === 'true';
+
+            // CodeQL also calls this workflow, without producing coverage itself.
+            // Preserve only our structured coverage snapshot for the SAME PR head.
+            // Never scrape GitHub's Code Coverage Overview heading/table/prose.
+            // A CI invocation with supplied=true overrides old data even if empty.
+            if (!coverageSupplied && existing) {
+              const snapshotMatch = existing.body.match(
+                /<!-- golden-path-warning-coverage (\{[^\r\n]*\}) -->/
+              );
+              if (snapshotMatch) {
+                try {
+                  const saved = JSON.parse(snapshotMatch[1]);
+                  if (saved.schema === 1 && saved.head_sha === headSha &&
+                      typeof saved.coverage_pct === 'number' &&
+                      Number.isFinite(saved.coverage_pct) &&
+                      saved.coverage_pct >= 0 && saved.coverage_pct <= 100) {
+                    coverage = saved.coverage_pct;
+                    coverageStatus = coverage >= threshold ? 'passing' : 'failing';
+                    coverageDetail = `${coverage}% (threshold ${threshold}%; retained CI result for this commit)`;
+                  }
+                } catch {
+                  core.warning('Stored warning coverage metadata could not be read; coverage remains unavailable.');
+                }
+              }
+            }
+
+            const coverageAvailable = ['passing', 'failing'].includes(coverageStatus);
+            if (!coverageAvailable) coverage = null;
+            const coverageResult = {
+              name: 'Code Coverage',
+              state: coverageAvailable ? coverageStatus : 'missing',
+              result: coverageStatus === 'passing' ? '✅ Passing'
+                : coverageStatus === 'failing' ? '❌ Failing' : '— Unavailable',
+              details: coverageDetail
+            };
+            const finalResults = [...results, coverageResult];
+            const failing = finalResults.filter(result => result.state === 'failing');
+            const pending = finalResults.filter(result => result.state === 'pending');
+            const isComplete = allPresent && allFinished && allRulesetsPresent &&
+              allRulesetsFinished && coverageAvailable;
+            const summary = failing.length > 0
+              ? `The following future required checks are currently failing: **${failing.map(result => result.name).join(', ')}**.`
+              : !isComplete
+                ? 'Waiting for the remaining Golden Path results. Missing or unavailable results are listed below.'
+                : pending.length > 0
+                  ? 'No completed check is currently failing, but one or more checks are still pending.'
+                  : 'No reported check is currently failing.';
+            const note = 'This notice is informational during the warning period. '
+              + 'Actual merge enforcement is controlled by configured repository or organization rulesets. '
+              + 'This snapshot refreshes when the warning workflow runs again.';
+            const escapeCell = value => String(value).replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
+            const rows = finalResults.map(result =>
+              `| ${escapeCell(result.name)} | ${escapeCell(result.result)} | ${escapeCell(result.details)} |`
+            ).join('\n');
+            const snapshot = {
+              schema: 1, head_sha: headSha, coverage_pct: coverage
+            };
+            const body = `${marker}
+            <!-- ${coverageMarker} ${JSON.stringify(snapshot)} -->
+            ## Golden Path warning period
+
+            ${summary}
+
+            ${note}
+
+            | Check | Current result | Matched result |
+            |---|---|---|
+            ${rows}
+
+            _Results for commit \`${headSha.slice(0, 7)}\`._`;
+
+            // The PR may have changed while the API requests above were running.
+            const { data: latestPullRequest } = await github.rest.pulls.get({
+              owner, repo, pull_number: pullRequestNumber
+            });
+            if (latestPullRequest.head.sha !== headSha) {
+              core.info('PR head changed while collecting results; skipping outdated comment update.');
+              return;
+            }
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body
+              });
+              core.info(`Updated warning-period results on PR #${pullRequestNumber}.`);
