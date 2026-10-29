@@ -1,38 +1,54 @@
-- name: Diagnose security alert API access
+# STEP SNIPPET: insert after app-token and before scorecard in reusable-standard-ci.yml.
+- name: Collect security alert counts
+  id: security-alerts
   if: always()
-  shell: bash
+  uses: actions/github-script@v7
   env:
-    GH_TOKEN: ${{ steps.app-token.outputs.token }}
-    REPO: ${{ github.repository }}
-    APP_ID_CONFIGURED: ${{ inputs.app_client_id != '' }}
-    APP_TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
-  run: |
-    set -uo pipefail
+    APP_TOKEN_AVAILABLE: ${{ steps.app-token.outputs.token != '' }}
+  with:
+    github-token: ${{ steps.app-token.outputs.token || github.token }}
+    script: |
+      const { owner, repo } = context.repo;
+      if (process.env.APP_TOKEN_AVAILABLE !== 'true') {
+        core.warning('App token unavailable; attempting alert retrieval with the workflow token.');
+      }
 
-    echo "Repository being queried: $REPO"
-    echo "App ID input configured: $APP_ID_CONFIGURED"
-    echo "App token creation outcome: $APP_TOKEN_OUTCOME"
+      // Only counts and availability leave this step. Never log alert bodies.
+      core.setOutput('code_available', 'no');
+      core.setOutput('secret_available', 'no');
+      core.setOutput('code_critical', '');
+      core.setOutput('code_high', '');
+      core.setOutput('secret_open', '');
+      core.setOutput('code_note', '');
+      core.setOutput('secret_note', '');
 
-    # Deliberately avoid the normal scorecard's github.token fallback.
-    if [[ -z "${GH_TOKEN:-}" ]]; then
-      echo "::warning::No GitHub App token was produced. Inspect the preceding token-generation step."
-      exit 0
-    fi
+      try {
+        // Repository alert snapshot; not a claim that this PR's analysis finished.
+        const alerts = await github.paginate('GET /repos/{owner}/{repo}/code-scanning/alerts', {
+          owner, repo, state: 'open', per_page: 100
+        });
+        const severity = alert => String(alert.rule?.security_severity_level || '').toLowerCase();
+        core.setOutput('code_critical', String(alerts.filter(alert => severity(alert) === 'critical').length));
+        core.setOutput('code_high', String(alerts.filter(alert => severity(alert) === 'high').length));
+        core.setOutput('code_available', 'yes');
+        core.info('Code-scanning alert collection succeeded.');
+      } catch (error) {
+        const status = Number.isInteger(error.status) ? `HTTP ${error.status}` : 'request error';
+        const note = `Code-scanning alerts unavailable (${status}); check App access, permissions and feature availability.`;
+        core.setOutput('code_note', note);
+        core.warning(note);
+      }
 
-    if ! command -v gh >/dev/null 2>&1; then
-      echo "::warning::GitHub CLI is not installed on this runner."
-      exit 0
-    fi
-
-    for scanner in code-scanning secret-scanning; do
-      echo "Checking access to ${scanner} alerts..."
-      # --silent discards successful alert payloads; gh still reports API errors.
-      # Do not add --verbose, --include, or shell tracing to this diagnostic.
-      if gh api --silent \
-        -H "Accept: application/vnd.github+json" \
-        "/repos/${REPO}/${scanner}/alerts?state=open&per_page=1"; then
-        echo "${scanner}: API request succeeded (including when no alerts exist)."
-      else
-        echo "::warning::${scanner}: API request failed; see the GitHub CLI error above."
-      fi
-    done
+      try {
+        const alerts = await github.paginate('GET /repos/{owner}/{repo}/secret-scanning/alerts', {
+          owner, repo, state: 'open', per_page: 100
+        });
+        core.setOutput('secret_open', String(alerts.length));
+        core.setOutput('secret_available', 'yes');
+        core.info('Secret-scanning alert collection succeeded.');
+      } catch (error) {
+        const status = Number.isInteger(error.status) ? `HTTP ${error.status}` : 'request error';
+        const note = `Secret-scanning alerts unavailable (${status}); check App access, permissions and feature availability.`;
+        core.setOutput('secret_note', note);
+        core.warning(note);
+      }
