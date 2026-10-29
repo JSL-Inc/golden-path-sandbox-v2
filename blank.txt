@@ -1,204 +1,73 @@
+# Golden Pipeline Enterprise Integration Requirements
 
-- name: Generate CI summary and quality scorecard
-  id: scorecard
-  if: always()
-  shell: bash
-  env:
-    ARTIFACT_TYPE: ${{ inputs.artifact_type }}
-    PUBLISH_ARTIFACT: ${{ inputs.publish_artifact }}
-    EVENT_NAME: ${{ github.event_name }}
-    LINT_CONFIGURED: ${{ inputs.lint_command != '' }}
-    JUNIT_REPORT: ${{ inputs.junit_report_path }}
-    COBERTURA_REPORT: ${{ inputs.cobertura_report_path }}
-    UNIT_PASS_RATE_INPUT: ${{ steps.unit-test-pass-rate.outputs.pass-rate }}
-    UNIT_TEST_TOTAL_INPUT: ${{ steps.unit-test-pass-rate.outputs.total }}
-    COVERAGE_PCT_INPUT: ${{ steps.coverage-pct.outputs.coverage }}
-    CODE_SCANNING_AVAILABLE: ${{ steps.security-alerts.outputs.code_available }}
-    CODE_CRITICAL: ${{ steps.security-alerts.outputs.code_critical }}
-    CODE_HIGH: ${{ steps.security-alerts.outputs.code_high }}
-    CODE_SCANNING_NOTE: ${{ steps.security-alerts.outputs.code_note }}
-    SECRET_SCANNING_AVAILABLE: ${{ steps.security-alerts.outputs.secret_available }}
-    SECRET_OPEN: ${{ steps.security-alerts.outputs.secret_open }}
-    SECRET_SCANNING_NOTE: ${{ steps.security-alerts.outputs.secret_note }}
-    BUILD_OUTCOME: ${{ steps.build.outcome }}
-    TEST_OUTCOME: ${{ steps.tests.outcome }}
-    REPORTS_OUTCOME: ${{ steps.reports.outcome }}
-    COVERAGE_OUTCOME: ${{ steps.coverage.outcome }}
-    QUALITY_OUTCOME: ${{ steps.quality.outcome }}
-    TEST_EVIDENCE_OUTCOME: ${{ steps.test-evidence.outcome }}
-    PACKAGE_OUTCOME: ${{ steps.package_artifact.outcome }}
-    CONTAINER_OUTCOME: ${{ steps.container_artifact.outcome }}
-    ARTIFACTORY_OUTCOME: ${{ steps.artifactory_artifact.outcome }}
-    CONTAINER_BUILD_OUTCOME: ${{ inputs.container_build_command == '' && steps.container_build.outcome || steps.container_custom_build.outcome }}
-    TEST_EVIDENCE_URL: ${{ steps.test-evidence.outputs.artifact-url }}
-    DEPLOYABLE_ARTIFACT_URL: ${{ inputs.artifact_type == 'package' && steps.package_artifact.outputs.artifact-url || inputs.artifact_type == 'container' && steps.container_artifact.outputs.artifact-url || steps.artifactory_artifact.outputs.artifact_url }}
-    WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  run: |
-    set -euo pipefail
-    python3 - <<'PY'
-    import json
-    import math
-    import os
-    from pathlib import Path
+## Purpose and scope
 
-    env = os.environ
-    notes = []
+This document describes the Golden Pipeline's current Artifactory integration, its supporting dependencies, and future ServiceNow and Rally integration opportunities. ServiceNow and Rally implementation is future work; this story captures the integration opportunities and known dependencies.
 
-    def percentage(key):
-        raw = env.get(key, '').strip()
-        try:
-            value = float(raw)
-            if math.isfinite(value) and 0 <= value <= 100:
-                return value
-        except ValueError:
-            pass
-        return None
+## Artifactory
 
-    def count(raw):
-        raw = str(raw).strip()
-        return int(raw) if raw.isascii() and raw.isdigit() else None
+**Status:** Integrated for current build-image use; runner and authentication are configured.
 
-    def cell(value):
-        return str(value).replace('|', r'\|').replace('\r', ' ').replace('\n', ' ')
+Artifactory currently serves as a registry for images used during the build process. These build images are separate from the application image used for deployment. The current integration scope therefore covers build-image consumption, without claiming that the deployed application image comes from Artifactory.
 
-    def result(outcome):
-        return {
-            'success': '✅ Passed', 'failure': '❌ Failed',
-            'cancelled': '⚪ Cancelled', 'skipped': '— Not run', '': '— Not run'
-        }.get(outcome, f'⚠️ {cell(outcome)}')
+The integration depends on:
 
-    unit_rate = percentage('UNIT_PASS_RATE_INPUT')
-    coverage = percentage('COVERAGE_PCT_INPUT')
-    if unit_rate is None:
-        notes.append(f"JUnit pass rate unavailable; report path: {env.get('JUNIT_REPORT', '')}.")
-    elif env.get('UNIT_TEST_TOTAL_INPUT') == '0':
-        unit_rate = 0.0
-        notes.append('JUnit report contained zero tests; pass rate treated as 0%.')
-    if coverage is None:
-        notes.append(f"Coverage percentage unavailable; report path: {env.get('COBERTURA_REPORT', '')}.")
+- A GitHub Actions runner with network access to Artifactory.
+- Configured authentication for the required registry operations.
+- The workflow or script that retrieves and uses the build image.
 
-    # Consume the collector outputs. No gh api requests or jq parsing here.
-    code_critical = count(env.get('CODE_CRITICAL', ''))
-    code_high = count(env.get('CODE_HIGH', ''))
-    code_available = env.get('CODE_SCANNING_AVAILABLE') == 'yes' and all(
-        value is not None for value in (code_critical, code_high)
-    )
-    if not code_available:
-        notes.append(env.get('CODE_SCANNING_NOTE') or
-                     'Code-scanning collector outputs are unavailable or invalid.')
+Record the following implementation references alongside this document:
 
-    secret_open = count(env.get('SECRET_OPEN', ''))
-    secret_available = env.get('SECRET_SCANNING_AVAILABLE') == 'yes' and secret_open is not None
-    if not secret_available:
-        notes.append(env.get('SECRET_SCANNING_NOTE') or
-                     'Secret-scanning collector outputs are unavailable or invalid.')
+| Detail | Current information |
+| --- | --- |
+| Runner | Configured; add runner label or runner-group reference. |
+| Authentication | Configured; add the credential reference and how it is passed to the workflow. Do not include credential values. |
+| Image retrieval | Build images are consumed from Artifactory; add the image/repository reference. |
+| Publication | Record any image or artifact publication separately, if applicable. |
+| Workflow or script | Add the responsible reusable workflow or script path. |
+| Execution evidence | Add a successful run showing retrieval and use of the build image. |
 
-    fossa_critical = fossa_high = None
-    for candidate in (
-        'fossa-report.json', 'reports/fossa/fossa-report.json',
-        'reports/fossa.json', '.fossa/fossa-report.json'
-    ):
-        path = Path(candidate)
-        if not path.is_file() or not path.stat().st_size:
-            continue
-        try:
-            report = json.loads(path.read_text(encoding='utf-8'))
-            summary = report.get('summary') or {}
-            counts = report.get('counts') or {}
-            fossa_critical = count(summary.get('critical', counts.get('critical', '')))
-            fossa_high = count(summary.get('high', counts.get('high', '')))
-            if fossa_critical is None or fossa_high is None:
-                raise ValueError('Missing expected vulnerability counts')
-        except (ValueError, OSError, AttributeError, TypeError):
-            fossa_critical = fossa_high = None
-            notes.append(f'FOSSA report at {candidate} could not supply valid critical/high counts.')
-        break
-    fossa_available = fossa_critical is not None and fossa_high is not None
-    if not fossa_available:
-        notes.append('FOSSA is not configured, its report is missing, or its counts are unavailable.')
+Application artifact publication, downstream retrieval, and deployment consumption should be recorded separately if those flows are included in the implementation. Build-image use alone does not establish those flows.
 
-    # Preserve the existing weights/default calculation. Incomplete inputs make
-    # this a provisional score; availability=no must not be treated as a clean scan.
-    code_component = max(0, 100 - (code_critical or 0) * 25 - (code_high or 0) * 10)
-    secret_component = max(0, 100 - (secret_open or 0) * 30)
-    fossa_component = max(0, 100 - (fossa_critical or 0) * 25 - (fossa_high or 0) * 10)
-    score = max(0, min(100,
-        (unit_rate or 0) * 0.40 + (coverage or 0) * 0.30 +
-        code_component * 0.15 + secret_component * 0.10 + fossa_component * 0.05
-    ))
-    score_complete = all((unit_rate is not None, coverage is not None,
-                          code_available, secret_available, fossa_available))
+## ServiceNow / CMDB
 
-    artifact_type = env.get('ARTIFACT_TYPE', 'package')
-    publishing = env.get('PUBLISH_ARTIFACT') == 'true' and (
-        artifact_type == 'package' or env.get('EVENT_NAME') == 'push'
-    )
-    artifact_outcome = env.get({
-        'package': 'PACKAGE_OUTCOME', 'container': 'CONTAINER_OUTCOME',
-        'artifactory': 'ARTIFACTORY_OUTCOME'
-    }.get(artifact_type, 'PACKAGE_OUTCOME'), '')
-    required_outcomes = [env.get(key, '') for key in (
-        'BUILD_OUTCOME', 'TEST_OUTCOME', 'REPORTS_OUTCOME', 'TEST_EVIDENCE_OUTCOME'
-    )]
-    if env.get('LINT_CONFIGURED') == 'true':
-        required_outcomes.append(env.get('QUALITY_OUTCOME', ''))
-    if publishing:
-        required_outcomes.append(artifact_outcome)
-    overall = 'FAIL' if any(value in ('failure', 'cancelled') for value in required_outcomes) else 'PASS'
-    icon = '❌' if overall == 'FAIL' else '✅'
+**Status:** Future integration; opportunities documented below.
 
-    lines = [
-        '<!-- golden-pipeline-ci-summary -->', '## Golden Pipeline CI Results', '',
-        f'{icon} **Overall CI Status: {overall}**', '',
-        f'**Engineering Quality Score: {score:.2f}/100**' +
-            ('' if score_complete else ' — provisional; some inputs are unavailable'), '',
-        env.get('WORKFLOW_RUN_URL', ''), '', '### CI Controls', '',
-        '| Control | Status |', '|---|---|'
-    ]
-    for label, key in (
-        ('Build', 'BUILD_OUTCOME'), ('Unit tests', 'TEST_OUTCOME'),
-        ('JUnit and Cobertura reports', 'REPORTS_OUTCOME'),
-        ('Coverage upload', 'COVERAGE_OUTCOME')
-    ):
-        lines.append(f'| {label} | {result(env.get(key, ""))} |')
-    quality_result = result(env.get('QUALITY_OUTCOME', '')) if env.get('LINT_CONFIGURED') == 'true' else '— Not configured'
-    lines.append(f'| Code quality | {quality_result} |')
-    lines.append(f'| Test evidence artifact | {result(env.get("TEST_EVIDENCE_OUTCOME", ""))} |')
-    if artifact_type == 'container':
-        lines.append(f'| Container build | {result(env.get("CONTAINER_BUILD_OUTCOME", ""))} |')
-    lines.append(f'| Deployable {cell(artifact_type)} | ' +
-                 (result(artifact_outcome) if publishing else 'Validated only; not published') + ' |')
+- **CMDB records and lifecycle:** Associate GitHub repositories/projects with application or project records, ownership, criticality, access, decommissioning, and archiving.
+- **Project creation workflows:** Connect repository/project creation with ServiceNow forms or workflows and the associated CMDB information.
+- **Deployment/change approval:** Evaluate connecting ServiceNow change authorization to GitHub deployment gates so deployment waits for the appropriate approval. GitHub custom deployment protection rules / GitHub Apps are a potential approach to evaluate.
+- **Deployment traceability:** Associate commits, builds, tests, artifacts, approvals, and deployment information with the relevant ServiceNow change record.
 
-    lines += ['', '### Quality Scorecard', '', '| Metric | Value | Availability |', '|---|---|---|']
-    metrics = (
-        ('Unit test pass rate', f'{unit_rate:.2f}%' if unit_rate is not None else '—', unit_rate is not None),
-        ('Coverage', f'{coverage:.2f}%' if coverage is not None else '—', coverage is not None),
-        ('Code scanning critical', code_critical if code_available else '—', code_available),
-        ('Code scanning high', code_high if code_available else '—', code_available),
-        ('Secret scanning open', secret_open if secret_available else '—', secret_available),
-        ('FOSSA critical', fossa_critical if fossa_available else '—', fossa_available),
-        ('FOSSA high', fossa_high if fossa_available else '—', fossa_available),
-    )
-    for label, value, available in metrics:
-        lines.append(f'| {label} | {cell(value)} | {"yes" if available else "no"} |')
+Connectivity, authentication, and the final integration approach remain TBD.
 
-    evidence = env.get('TEST_EVIDENCE_URL') or 'Not available'
-    artifact = (env.get('DEPLOYABLE_ARTIFACT_URL') or 'Not available') if publishing else 'Not applicable'
-    lines += ['', '### Artifacts', '', f'- **Test evidence:** {evidence}', f'- **Deployable artifact:** {artifact}']
-    if notes:
-        lines += ['', '<details>', '<summary>Data availability notes</summary>', '']
-        lines += [f'- {cell(note)}' for note in notes]
-        lines += ['', '</details>']
-    lines += [
-        '', '> The quality score is reporting-only. Enforcement remains with repository or organization rulesets.',
-        '> Scanning counts are repository alert snapshots, not confirmation that this PR’s analysis has completed.'
-    ]
-    if artifact_type == 'container':
-        lines.append('> Container images are published only for push events; deployment descriptors identify images by immutable digest.')
-    body = '\n'.join(lines) + '\n'
-    Path('pr-summary.md').write_text(body, encoding='utf-8')
-    with open(env['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
-        summary.write(body)
-    with open(env['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
-        output.write(f'quality-score={score:.2f}\noverall-status={overall}\n')
-    PY
+## Rally
+
+**Status:** Future integration; opportunities documented below.
+
+- **Defect integration:** Allow pipeline quality or security findings to create, update, or associate Rally defects where appropriate. Relevant context could include repository, environment, failed check, severity, and related work item.
+- **Work-item traceability:** Carry Rally feature, story, or defect references through commits, pull requests, builds, releases, and deployments so delivery activity can be traced to the originating work.
+- **Verify integration boundary:** Keep Verify quality-check work separate from Rally defect automation until the interface between them is defined. This document does not establish that defect automation is implemented.
+
+Connectivity, authentication, and the final integration approach remain TBD.
+
+## Dependencies and infrastructure
+
+| Area | Dependency / information to capture |
+| --- | --- |
+| GitHub Actions | Runner requirements and access to the services used by each workflow. |
+| Artifactory | Runner/network connectivity, configured authentication, and image or artifact references. |
+| Azure identity | Service principal / OIDC requirements where applicable to the deployment path. |
+| ACR / ACA | Registry and deployment-resource requirements where applicable. |
+| ServiceNow | Future connectivity and authentication requirements: TBD. |
+| Rally | Future connectivity and authentication requirements: TBD. |
+
+The Azure identity and ACR/ACA entries identify related deployment dependencies; they do not indicate that deployment validation is complete. Detailed future ServiceNow and Rally requirements remain open for follow-up design.
+
+## Acceptance criteria coverage
+
+| Acceptance criterion | Coverage in this document |
+| --- | --- |
+| Integration requirements are documented. | Current Artifactory use and future ServiceNow/Rally opportunities are described. |
+| Dependency and infrastructure needs are identified. | Runner, connectivity, authentication, and applicable platform dependencies are listed; future unknowns are marked TBD. |
+| Artifactory integration approach is defined. | The current build-image role and supporting configuration are described. Implementation references and execution evidence remain to be added above. |
+| Future ServiceNow and Rally integration opportunities are documented. | CMDB, project creation, deployment/change approvals, defect integration, and traceability opportunities are captured. |
