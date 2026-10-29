@@ -1,3 +1,195 @@
+name: Golden Path Warning Period
+
+on:
+  workflow_call:
+    inputs:
+      coverage_pct:
+        description: Line coverage percentage calculated by the CI job, from 0 to 100
+        required: false
+        type: string
+        default: ""
+      coverage_result_supplied:
+        description: CI sets true even if calculation failed; other callers leave false
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  checks: read
+  contents: read
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: golden-path-warning-${{ github.repository }}-${{ github.event.pull_request.number || github.event.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  COVERAGE_THRESHOLD: "80"
+
+jobs:
+  coverage-check:
+    name: Coverage Threshold Check
+    runs-on: ubuntu-latest
+    outputs:
+      coverage: ${{ steps.evaluate.outputs.coverage }}
+      status: ${{ steps.evaluate.outputs.status }}
+      detail: ${{ steps.evaluate.outputs.detail }}
+      supplied: ${{ steps.evaluate.outputs.supplied }}
+    steps:
+      - name: Evaluate coverage percentage supplied by CI
+        id: evaluate
+        uses: actions/github-script@v7
+        env:
+          COVERAGE_PCT: ${{ inputs.coverage_pct }}
+          COVERAGE_RESULT_SUPPLIED: ${{ inputs.coverage_result_supplied }}
+          THRESHOLD: ${{ env.COVERAGE_THRESHOLD }}
+        with:
+          script: |
+            const raw = (process.env.COVERAGE_PCT || '').trim();
+            const supplied = process.env.COVERAGE_RESULT_SUPPLIED === 'true' || raw !== '';
+            const threshold = Number(process.env.THRESHOLD);
+            core.setOutput('supplied', String(supplied));
+
+            if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) {
+              core.setFailed('COVERAGE_THRESHOLD must be a number from 0 to 100.');
+              return;
+            }
+
+            // Empty means unavailable, not measured zero coverage.
+            if (raw === '') {
+              core.setOutput('coverage', '');
+              core.setOutput('status', 'missing');
+              core.setOutput('detail', supplied
+                ? 'CI did not produce a coverage percentage for this run'
+                : 'No CI coverage input supplied by this invocation');
+              return;
+            }
+
+            const coverage = Number(raw);
+            if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(raw) ||
+                !Number.isFinite(coverage) || coverage < 0 || coverage > 100) {
+              core.setOutput('coverage', '');
+              core.setOutput('status', 'unparseable');
+              core.setOutput('detail', 'CI supplied an invalid coverage percentage');
+              core.warning('Expected a numeric coverage percentage from 0 to 100.');
+              return;
+            }
+
+            const status = coverage >= threshold ? 'passing' : 'failing';
+            core.setOutput('coverage', String(coverage));
+            core.setOutput('status', status);
+            core.setOutput('detail', `${coverage}% (threshold ${threshold}%; calculated by CI)`);
+            if (status === 'failing') {
+              core.warning(`Coverage ${coverage}% is below ${threshold}% (warning period, non-blocking).`);
+            }
+
+  warning:
+    name: Warning Period Notice
+    needs: coverage-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve PR context
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pullRequest = context.payload.pull_request;
+            if (!pullRequest) {
+              core.setOutput('found', 'false');
+              core.warning('No pull request is associated with this invocation.');
+              return;
+            }
+
+            const { data: currentPullRequest } = await github.rest.pulls.get({
+              owner, repo, pull_number: pullRequest.number
+            });
+            if (currentPullRequest.head.sha !== pullRequest.head.sha) {
+              core.setOutput('found', 'false');
+              core.info(`Skipping outdated run for ${pullRequest.head.sha}; current head is ${currentPullRequest.head.sha}.`);
+              return;
+            }
+            core.setOutput('found', 'true');
+            core.setOutput('number', String(currentPullRequest.number));
+            core.setOutput('head_sha', currentPullRequest.head.sha);
+
+      - name: Check results and post warning period notice
+        if: steps.pr.outputs.found == 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          COVERAGE_PCT: ${{ needs.coverage-check.outputs.coverage }}
+          COVERAGE_STATUS: ${{ needs.coverage-check.outputs.status }}
+          COVERAGE_DETAIL: ${{ needs.coverage-check.outputs.detail }}
+          COVERAGE_SUPPLIED: ${{ needs.coverage-check.outputs.supplied }}
+          THRESHOLD: ${{ env.COVERAGE_THRESHOLD }}
+        with:
+          script: |
+            const marker = '<!-- golden-path-warning-period -->';
+            const coverageMarker = 'golden-path-warning-coverage';
+            const { owner, repo } = context.repo;
+            const pullRequestNumber = Number(process.env.PR_NUMBER);
+            const headSha = process.env.HEAD_SHA;
+            const threshold = Number(process.env.THRESHOLD);
+            const requiredChecks = [
+              { name: 'Standard CI', aliases: ['Standard CI', 'CI / Standard CI'] },
+              { name: 'INT Gate', aliases: ['INT Gate', 'cd / INT Gate'] },
+              { name: 'Preprod Gate', aliases: ['ePreProd Gate', 'cd / ePreProd Gate'] },
+              { name: 'Branch Naming', aliases: ['Branch Name', 'validate-branch-name'] },
+              { name: 'PR Flow', aliases: ['Branch Flow', 'PR Flow'] },
+              { name: 'QA Gate', aliases: ['QA Gate', 'cd / QA Gate'] }
+            ];
+            const rulesetChecks = [
+              { name: 'Code Scanning', aliases: ['CodeQL', 'Code Scanning'] }
+            ];
+            const targets = [...requiredChecks, ...rulesetChecks];
+            const normalize = value => value.trim().toLowerCase();
+            const matchesAlias = (name, aliases) => aliases.some(alias =>
+              normalize(name) === normalize(alias) ||
+              normalize(name).endsWith(` / ${normalize(alias)}`)
+            );
+
+            const checks = await github.paginate(github.rest.checks.listForRef, {
+              owner, repo, ref: headSha, filter: 'latest', per_page: 100
+            });
+            const { data: combinedStatus } = await github.rest.repos.getCombinedStatusForRef({
+              owner, repo, ref: headSha, per_page: 100
+            });
+            const latestStatuses = new Map();
+            for (const status of combinedStatus.statuses) {
+              if (!latestStatuses.has(status.context)) {
+                latestStatuses.set(status.context, {
+                  name: status.context,
+                  status: status.state === 'pending' ? 'in_progress' : 'completed',
+                  conclusion: status.state === 'success' ? 'success'
+                    : status.state === 'pending' ? null : 'failure',
+                  started_at: status.created_at,
+                  completed_at: status.updated_at
+                });
+              }
+            }
+
+            const deduplicated = new Map();
+            for (const check of [...checks, ...latestStatuses.values()]) {
+              if (normalize(check.name).includes('warning period notice')) continue;
+              const key = normalize(check.name);
+              const existing = deduplicated.get(key);
+              const currentTime = new Date(check.completed_at || check.started_at || 0).getTime();
+              const existingTime = existing
+                ? new Date(existing.completed_at || existing.started_at || 0).getTime() : -1;
+              if (!existing || currentTime >= existingTime) deduplicated.set(key, check);
+            }
+            const checkRuns = [...deduplicated.values()];
+            const isRunning = check => check.status !== 'completed';
+            const findMatches = target => checkRuns.filter(check => matchesAlias(check.name, target.aliases));
+            const getUniqueNames = matches => [...new Set(matches.map(check => check.name))].join(', ');
+            const requiredMatches = requiredChecks.map(findMatches);
+            const rulesetMatches = rulesetChecks.flatMap(findMatches);
+            const allPresent = requiredMatches.every(matches => matches.length > 0);
             const allFinished = requiredMatches.every(matches =>
               matches.length > 0 && matches.every(check => !isRunning(check)));
             const allRulesetsPresent = rulesetChecks.every(target => findMatches(target).length > 0);
@@ -126,3 +318,9 @@
                 owner, repo, comment_id: existing.id, body
               });
               core.info(`Updated warning-period results on PR #${pullRequestNumber}.`);
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pullRequestNumber, body
+              });
+              core.info(`Posted warning-period results on PR #${pullRequestNumber}.`);
+            }
